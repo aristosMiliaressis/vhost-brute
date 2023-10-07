@@ -1,7 +1,7 @@
 vhost-brute
 ==
 
-Virtual host detection tool  
+Virtual host detection tool.  
 
 <br>
 
@@ -16,7 +16,7 @@ Virtual host detection tool
 ```
 vhost-brute - v1.0.0
 
-Usage: C:\Users\user\Desktop\VHost\vhost-brute.exe [flags]
+Usage: /opt/vhost-brute/vhost-brute [flags]
 
 Flags:
 GENERAL:
@@ -31,6 +31,8 @@ GENERAL:
 EXAMPLE:
 	/opt/vhost-brute/vhost-brute -u https://1.2.3.4 -f hostnames.txt
 
-	/opt/vhost-brute/vhost-brute -s --only-unindexed -fc 403,429,502,503,504,409,523,422 -u https://1.2.3.4 -f hostnames.txt
+	/opt/vhost-brute/vhost-brute -s --only-unindexed \
+                -fc 429,502,503,504,409,523,422 \
+                -u https://1.2.3.4 -f hostnames.txt
 
 ```
