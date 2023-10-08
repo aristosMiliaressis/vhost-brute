@@ -6,6 +6,7 @@ Virtual host detection tool.
 <br>
 
 **Features**
+- detects ip bans.
 - filters false positive redirect responses.
 - option to filter status codes.
 - option to filter virtual hosts with public dns records.   
