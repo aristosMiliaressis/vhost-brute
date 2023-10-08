@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	neturl "net/url"
+	"sync"
 
 	"github.com/aristosMiliaressis/httpc/pkg/httpc"
 	"github.com/aristosMiliaressis/vhost-brute/pkg/input"
@@ -35,52 +36,61 @@ func NewScanner(conf input.Config) Scanner {
 func (s Scanner) Scan() {
 	notFoundResponse, threshold := s.getNotFoundVHost(s.Config.Url)
 
+	var wg sync.WaitGroup
 	for _, hostname := range s.Config.Hostnames {
-		response := s.getVHostResponse(s.Config.Url, hostname)
-		gologger.Info().Msgf("status:%d\tcl:%d\tct:%s\tloc:%s - %s", response.StatusCode, response.ContentLength, response.Header.Get("Content-Type"), response.Header.Get("Location"), hostname)
+		lHostname := hostname
+		go func() {
+			wg.Add(1)
+			defer wg.Done()
 
-		if ok, reason := isDiffResponse(notFoundResponse, response, threshold); ok {
+			response := s.getVHostResponse(s.Config.Url, lHostname)
+			gologger.Info().Msgf("status:%d\tcl:%d\tct:%s\tloc:%s - %s", response.StatusCode, response.ContentLength, response.Header.Get("Content-Type"), response.Header.Get("Location"), lHostname)
 
-			if response.StatusCode >= 300 && response.StatusCode <= 400 {
-				location := response.Header.Get("Location")
-				locUrl, err := url.Parse(location)
-				if err != nil {
-					gologger.Error().Msgf("Error while following redirect[%s] %s", location, err)
-					continue
-				}
+			if ok, reason := isDiffResponse(notFoundResponse, response, threshold); ok {
 
-				count := 0
-				maxRedirects := 15
-				for {
-					response := s.getVHostResponse(locUrl, locUrl.Host)
-					if response == nil || (response.StatusCode < 300 && response.StatusCode >= 400) {
-						break
+				if response.StatusCode >= 300 && response.StatusCode <= 400 {
+					location := response.Header.Get("Location")
+					locUrl, err := url.Parse(location)
+					if err != nil {
+						gologger.Error().Msgf("Error while following redirect[%s] %s", location, err)
+						return
 					}
-					count++
-					if count == maxRedirects {
-						break
+
+					count := 0
+					maxRedirects := 15
+					for {
+						response := s.getVHostResponse(locUrl, locUrl.Host)
+						if response == nil || (response.StatusCode < 300 && response.StatusCode >= 400) {
+							break
+						}
+						count++
+						if count == maxRedirects {
+							break
+						}
+					}
+
+					if ok, _ := isDiffResponse(notFoundResponse, response, threshold); count == maxRedirects || !ok {
+						return
+					}
+				} else if Contains(s.Config.FilterCodes, response.StatusCode) {
+					gologger.Info().Msgf("VHost %s found on %s but status code %d is filtered.\n", lHostname, s.Config.Url.Hostname(), response.StatusCode)
+					return
+				}
+
+				if s.Config.OnlyUnindexed {
+					ips := getIPs(lHostname)
+					if Contains(ips, s.Config.Url.Hostname()) {
+						gologger.Info().Msgf("VHost %s found on %s but dns record exists.\n", lHostname, s.Config.Url.Hostname())
+						return
 					}
 				}
 
-				if ok, _ := isDiffResponse(notFoundResponse, response, threshold); count == maxRedirects || !ok {
-					continue
-				}
-			} else if Contains(s.Config.FilterCodes, response.StatusCode) {
-				gologger.Info().Msgf("VHost %s found on %s but status code %d is filtered.\n", hostname, s.Config.Url.Hostname(), response.StatusCode)
-				continue
+				fmt.Printf("%s %s cause %s\n", lHostname, s.Config.Url, reason)
 			}
-
-			if s.Config.OnlyUnindexed {
-				ips := getIPs(hostname)
-				if Contains(ips, s.Config.Url.Hostname()) {
-					gologger.Info().Msgf("VHost %s found on %s but dns record exists.\n", hostname, s.Config.Url.Hostname())
-					continue
-				}
-			}
-
-			fmt.Printf("%s %s cause %s\n", hostname, s.Config.Url, reason)
-		}
+		}()
 	}
+
+	wg.Wait()
 }
 
 func (s Scanner) getNotFoundVHost(url *neturl.URL) (*http.Response, int) {
