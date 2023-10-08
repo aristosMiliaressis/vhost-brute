@@ -44,6 +44,9 @@ func (s Scanner) Scan() {
 			defer wg.Done()
 
 			response := s.getVHostResponse(s.Config.Url, lHostname)
+			if response == nil {
+				return
+			}
 			gologger.Info().Msgf("status:%d\tcl:%d\tct:%s\tloc:%s - %s", response.StatusCode, response.ContentLength, response.Header.Get("Content-Type"), response.Header.Get("Location"), lHostname)
 
 			if ok, reason := isDiffResponse(notFoundResponse, response, threshold); ok {

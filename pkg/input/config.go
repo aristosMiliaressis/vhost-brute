@@ -44,7 +44,7 @@ func ParseCliFlags() (Config, error) {
 	flagSet.CreateGroup("general", "General",
 		flagSet.StringVarP(&url, "url", "u", "", "Target Url."),
 		flagSet.StringVarP(&hostnameFile, "file", "f", "", "File containing hostnames to test."),
-		flagSet.IntVarP(&dfltOpts.Http.ReqsPerSecond, "rps", "r", 20, "Request per second."),
+		flagSet.IntVarP(&dfltOpts.Http.ReqsPerSecond, "rps", "r", 2, "Request per second."),
 		flagSet.BoolVarP(&dfltOpts.Silent, "silent", "s", false, "Suppress stderr output."),
 		flagSet.StringSliceVarP(&headers, "header", "H", nil, "Add request header.", goflags.FileStringSliceOptions),
 		flagSet.BoolVarP(&dfltOpts.OnlyUnindexed, "only-unindexed", "oU", false, "Only shows VHosts that dont have a public dns record."),
