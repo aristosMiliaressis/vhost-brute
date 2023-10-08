@@ -22,6 +22,7 @@ Flags:
 GENERAL:
 	-u, -url 	string		Target Url.
 	-f, -file 	string 		File containing hostnames to test. 
+	-r, -rps	int			Request per second.
 	-s, -silent 			Suppress stderr output.
 	-H, -header 	string[]	Add request header. 
 	-oU, -only-unindexed 		Only shows VHosts that dont have a public dns record.

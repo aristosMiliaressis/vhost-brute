@@ -6,10 +6,8 @@ github.com/andybalholm/brotli v1.0.4 h1:V7DdXeJtZscaqfNuAdSRuRFzuiKlHSC/Zh3zl9qY
 github.com/andybalholm/brotli v1.0.4/go.mod h1:fO7iG3H7G2nSZ7m0zPUDn85XEX2GTukHGRSepvi9Eig=
 github.com/aristosMiliaressis/go-ip-rotate v0.0.0-20230729195240-81191f0c2877 h1:0xoGj/Ep32m6CvkCvzBpJG+SgtIdAyVF5K00CdbuZuc=
 github.com/aristosMiliaressis/go-ip-rotate v0.0.0-20230729195240-81191f0c2877/go.mod h1:sYYaOEL8inJMausfutd913mvSONnS0QOM1heUj4j4Gg=
-github.com/aristosMiliaressis/httpc v0.0.0-20231005090842-4e86dfa112c8 h1:kTuFyFqdCWahJgPOfnJ3PR9Iw/qEH3fQVSdBY5DLeMY=
-github.com/aristosMiliaressis/httpc v0.0.0-20231005090842-4e86dfa112c8/go.mod h1:lyjI183sb4Y3rCWlcxTACNEdCJL4idJmKDgpI8F0l2c=
-github.com/aristosMiliaressis/httpc v0.0.0-20231007121019-0cf16249963f h1:DuIq+LlBo4Tl51BqN1VMkkMmtAtPHo21dgXkkmuVsDI=
-github.com/aristosMiliaressis/httpc v0.0.0-20231007121019-0cf16249963f/go.mod h1:lyjI183sb4Y3rCWlcxTACNEdCJL4idJmKDgpI8F0l2c=
+github.com/aristosMiliaressis/httpc v0.0.0-20231008090857-c47dd7456160 h1:iG+A7uiyxzc9w/OsgVT5lDKziDLYxLNS/y52gUfiokg=
+github.com/aristosMiliaressis/httpc v0.0.0-20231008090857-c47dd7456160/go.mod h1:IPojqxjVawVoctOjlojNkhKfSVG45SEPU7apzimONgw=
 github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d h1:Byv0BzEl3/e6D5CLfI0j/7hiIEtvGVFPCZ7Ei2oq8iQ=
 github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
 github.com/aws/aws-sdk-go-v2 v1.19.1 h1:STs0lbbpXu3byTPcnRLghs2DH0yk9qKDo27TyyJSKsM=
@@ -44,6 +42,8 @@ github.com/bits-and-blooms/bitset v1.3.1 h1:y+qrlmq3XsWi+xZqSaueaE8ry8Y127iMxlMf
 github.com/bits-and-blooms/bloom/v3 v3.4.0 h1:9zesenPR5M3SLIJ/esQ84o1eSVFY5Rw5d+pa1tiXQNA=
 github.com/cnf/structhash v0.0.0-20201127153200-e1b16c1ebc08 h1:ox2F0PSMlrAAiAdknSRMDrAr8mfxPCfSZolH+/qQnyQ=
 github.com/cnf/structhash v0.0.0-20201127153200-e1b16c1ebc08/go.mod h1:pCxVEbcm3AMg7ejXyorUXi6HQCzOIBf7zEDVPtw0/U4=
+github.com/corpix/uarand v0.2.0 h1:U98xXwud/AVuCpkpgfPF7J5TQgr7R5tqT8VZP5KWbzE=
+github.com/corpix/uarand v0.2.0/go.mod h1:/3Z1QIqWkDIhf6XWn/08/uMHoQ8JUoTIKc2iPchBOmM=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

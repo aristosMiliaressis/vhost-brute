@@ -61,6 +61,11 @@ func ParseCliFlags() (Config, error) {
 		return Config{}, errors.New(fmt.Sprintf("Could not parse options: %s\n", err))
 	}
 
+	gologger.DefaultLogger.SetMaxLevel(levels.LevelInfo)
+	if dfltOpts.Silent {
+		gologger.DefaultLogger.SetMaxLevel(levels.LevelError)
+	}
+
 	dfltOpts.Hostnames, err = ReadWordlist(hostnameFile)
 	if err != nil {
 		gologger.Fatal().Msgf("Failed to read hostname file: %s", err)
@@ -71,21 +76,26 @@ func ParseCliFlags() (Config, error) {
 		return Config{}, errors.New(fmt.Sprintf("Invalid Url Provided: %s\n", err))
 	}
 
-	for _, v := range headers {
-		if headerParts := strings.SplitN(v, ":", 2); len(headerParts) >= 2 {
-			dfltOpts.Http.DefaultHeaders[strings.Trim(headerParts[0], " ")] = strings.Trim(headerParts[1], " ")
-		}
-	}
-
-	gologger.DefaultLogger.SetMaxLevel(levels.LevelInfo)
-	if dfltOpts.Silent {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelError)
-	}
-
 	for _, code := range strings.Split(statusCodes, ",") {
 		c, err := strconv.Atoi(code)
 		if err == nil {
 			dfltOpts.FilterCodes = append(dfltOpts.FilterCodes, c)
+		}
+	}
+
+	// simulate browser request
+	dfltOpts.Http.RandomizeUserAgent = true
+	dfltOpts.Http.DefaultHeaders["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
+	dfltOpts.Http.DefaultHeaders["Accept-Language"] = "en-US,en;q=0.5"
+	dfltOpts.Http.DefaultHeaders["Accept-Encoding"] = "gzip, deflate, br"
+	dfltOpts.Http.DefaultHeaders["Sec-Fetch-Dest"] = "document"
+	dfltOpts.Http.DefaultHeaders["Sec-Fetch-Mode"] = "navigate"
+	dfltOpts.Http.DefaultHeaders["Sec-Fetch-Site"] = "none"
+	dfltOpts.Http.DefaultHeaders["Sec-Fetch-User"] = "?1"
+
+	for _, v := range headers {
+		if headerParts := strings.SplitN(v, ":", 2); len(headerParts) >= 2 {
+			dfltOpts.Http.DefaultHeaders[strings.Trim(headerParts[0], " ")] = strings.Trim(headerParts[1], " ")
 		}
 	}
 

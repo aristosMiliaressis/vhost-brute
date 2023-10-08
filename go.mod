@@ -3,7 +3,7 @@ module github.com/aristosMiliaressis/vhost-brute
 go 1.20
 
 require (
-	github.com/aristosMiliaressis/httpc v0.0.0-20231007121019-0cf16249963f
+	github.com/aristosMiliaressis/httpc v0.0.0-20231008090857-c47dd7456160
 	github.com/projectdiscovery/goflags v0.1.22
 	github.com/projectdiscovery/gologger v1.1.11
 )
@@ -29,6 +29,7 @@ require (
 	github.com/aws/smithy-go v1.13.5 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/cnf/structhash v0.0.0-20201127153200-e1b16c1ebc08 // indirect
+	github.com/corpix/uarand v0.2.0 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/gaukas/godicttls v0.0.3 // indirect

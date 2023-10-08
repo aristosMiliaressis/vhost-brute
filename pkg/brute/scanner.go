@@ -88,6 +88,11 @@ func (s Scanner) Scan() {
 					}
 				}
 
+				notFoundRetry, _ := s.getNotFoundVHost(s.Config.Url)
+				if ok, _ := isDiffResponse(notFoundResponse, notFoundRetry, threshold); ok {
+					gologger.Fatal().Msg("IP block detected, exiting.")
+				}
+
 				fmt.Printf("%s %s cause %s\n", lHostname, s.Config.Url, reason)
 			}
 		}()
