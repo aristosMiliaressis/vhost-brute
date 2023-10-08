@@ -10,6 +10,7 @@ Virtual host detection tool.
 - filters false positive redirect responses.
 - option to filter status codes.
 - option to filter virtual hosts with public dns records.   
+- request rate control.
 
 <br>
 
@@ -23,7 +24,7 @@ Flags:
 GENERAL:
 	-u, -url 	string		Target Url.
 	-f, -file 	string 		File containing hostnames to test. 
-	-r, -rps	int			Request per second.
+	-r, -rps	int		Request per second.
 	-s, -silent 			Suppress stderr output.
 	-H, -header 	string[]	Add request header. 
 	-oU, -only-unindexed 		Only shows VHosts that dont have a public dns record.
