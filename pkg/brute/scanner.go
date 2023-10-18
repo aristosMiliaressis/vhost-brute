@@ -34,20 +34,29 @@ func NewScanner(conf input.Config) Scanner {
 }
 
 func (s Scanner) Scan() {
-	notFoundResponse, threshold := s.getNotFoundVHost(s.Config.Url)
+	notFoundResponse, threshold := s.getNotFoundVHost(s.Config.Url, s.Config.Hostnames[0])
 
 	var wg sync.WaitGroup
-	for _, hostname := range s.Config.Hostnames {
+	for i, hostname := range s.Config.Hostnames {
+		if hostname == "" {
+			continue
+		}
+		idx := i
 		lHostname := hostname
+		wg.Add(1)
+
 		go func() {
-			wg.Add(1)
 			defer wg.Done()
 
 			response := s.getVHostResponse(s.Config.Url, lHostname)
 			if response == nil {
+				gologger.Error().Msgf("No Response for %s", lHostname)
 				return
 			}
-			gologger.Info().Msgf("status:%d\tcl:%d\tct:%s\tloc:%s - %s", response.StatusCode, response.ContentLength, response.Header.Get("Content-Type"), response.Header.Get("Location"), lHostname)
+			body, _ := ioutil.ReadAll(response.Body)
+			response.Body = io.NopCloser(bytes.NewBuffer(body))
+
+			gologger.Info().Msgf("[#%d]\tstatus:%d\tcl:%d\tct:%s\tloc:%s\thost:%s", idx, response.StatusCode, len(body), response.Header.Get("Content-Type"), response.Header.Get("Location"), lHostname)
 
 			if ok, reason := isDiffResponse(notFoundResponse, response, threshold); ok {
 
@@ -59,20 +68,15 @@ func (s Scanner) Scan() {
 						return
 					}
 
-					count := 0
-					maxRedirects := 15
-					for {
-						response := s.getVHostResponse(locUrl, locUrl.Host)
-						if response == nil || (response.StatusCode < 300 && response.StatusCode >= 400) {
-							break
-						}
-						count++
-						if count == maxRedirects {
-							break
-						}
+					redirectHost := locUrl.Host
+					locUrl.Host = s.Config.Url.Host
+					redirectResponse := s.getVHostResponse(locUrl, redirectHost)
+					if redirectResponse == nil {
+						gologger.Error().Msgf("No Response while following redirect %s", locUrl)
+						return
 					}
 
-					if ok, _ := isDiffResponse(notFoundResponse, response, threshold); count == maxRedirects || !ok {
+					if diff, _ := isDiffResponse(response, redirectResponse, threshold); !diff || (redirectResponse.StatusCode >= 300 && redirectResponse.StatusCode < 400) {
 						return
 					}
 				} else if Contains(s.Config.FilterCodes, response.StatusCode) {
@@ -88,10 +92,11 @@ func (s Scanner) Scan() {
 					}
 				}
 
-				notFoundRetry, _ := s.getNotFoundVHost(s.Config.Url)
-				if ok, _ := isDiffResponse(notFoundResponse, notFoundRetry, threshold); ok {
-					gologger.Fatal().Msg("IP block detected, exiting.")
-				}
+				// TODO: do this by comparring previous responses don't send extra req
+				// notFoundRetry := s.getVHostResponse(s.Config.Url, RandomString(12)+".example.com")
+				// if ok, _ := isDiffResponse(notFoundResponse, notFoundRetry, threshold); ok {
+				// 	gologger.Fatal().Msg("IP block detected, exiting.")
+				// }
 
 				fmt.Printf("%s %s cause %s\n", lHostname, s.Config.Url, reason)
 			}
@@ -101,10 +106,10 @@ func (s Scanner) Scan() {
 	wg.Wait()
 }
 
-func (s Scanner) getNotFoundVHost(url *neturl.URL) (*http.Response, int) {
+func (s Scanner) getNotFoundVHost(url *neturl.URL, hostname string) (*http.Response, int) {
 	responses := []*http.Response{}
 	for {
-		resp := s.getVHostResponse(url, RandomString(24)+".skroutz.gr")
+		resp := s.getVHostResponse(url, RandomString(12)+"."+hostname)
 
 		if resp == nil {
 			continue
@@ -152,6 +157,9 @@ func (s Scanner) getNotFoundVHost(url *neturl.URL) (*http.Response, int) {
 	if lev > max {
 		max = lev
 	}
+
+	// Add extra eddit distance to account for hostnames being reflected
+	max = max + 263 - len(hostname) - 13
 
 	return responses[0], max
 }

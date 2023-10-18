@@ -44,11 +44,12 @@ func ParseCliFlags() (Config, error) {
 	flagSet.CreateGroup("general", "General",
 		flagSet.StringVarP(&url, "url", "u", "", "Target Url."),
 		flagSet.StringVarP(&hostnameFile, "file", "f", "", "File containing hostnames to test."),
-		flagSet.IntVarP(&dfltOpts.Http.ReqsPerSecond, "rps", "r", 2, "Request per second."),
-		flagSet.BoolVarP(&dfltOpts.Silent, "silent", "s", false, "Suppress stderr output."),
+		flagSet.StringVarP(&dfltOpts.Http.ProxyUrl, "proxy", "p", dfltOpts.Http.ProxyUrl, "Proxy URL. For example: http://127.0.0.1:8080"),
 		flagSet.StringSliceVarP(&headers, "header", "H", nil, "Add request header.", goflags.FileStringSliceOptions),
+		flagSet.IntVarP(&dfltOpts.Http.ReqsPerSecond, "rps", "r", 3, "Request per second."),
 		flagSet.BoolVarP(&dfltOpts.OnlyUnindexed, "only-unindexed", "oU", false, "Only shows VHosts that dont have a public dns record."),
 		flagSet.StringVarP(&statusCodes, "filter-codes", "fc", "", "Filter status codes (e.g. \"429,502,503\")."),
+		flagSet.BoolVarP(&dfltOpts.Silent, "silent", "s", false, "Suppress stderr output."),
 	)
 	flagSet.SetCustomHelpText(fmt.Sprintf(`EXAMPLE:
 	%s -u https://1.2.3.4 -f hostnames.txt
@@ -82,16 +83,6 @@ func ParseCliFlags() (Config, error) {
 			dfltOpts.FilterCodes = append(dfltOpts.FilterCodes, c)
 		}
 	}
-
-	// simulate browser request
-	dfltOpts.Http.RandomizeUserAgent = true
-	dfltOpts.Http.DefaultHeaders["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
-	dfltOpts.Http.DefaultHeaders["Accept-Language"] = "en-US,en;q=0.5"
-	dfltOpts.Http.DefaultHeaders["Accept-Encoding"] = "gzip, deflate, br"
-	dfltOpts.Http.DefaultHeaders["Sec-Fetch-Dest"] = "document"
-	dfltOpts.Http.DefaultHeaders["Sec-Fetch-Mode"] = "navigate"
-	dfltOpts.Http.DefaultHeaders["Sec-Fetch-Site"] = "none"
-	dfltOpts.Http.DefaultHeaders["Sec-Fetch-User"] = "?1"
 
 	for _, v := range headers {
 		if headerParts := strings.SplitN(v, ":", 2); len(headerParts) >= 2 {
