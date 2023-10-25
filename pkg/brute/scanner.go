@@ -66,7 +66,7 @@ func (s *Scanner) Scan() {
 			notFound := s.NotFoundPerApex[apexHostname]
 
 			if notFound == nil {
-				notFoundResponse, threshold := s.getNotFoundVHost(s.Config.Url, apexHostname)
+				notFoundResponse, threshold := s.getNotFoundVHost(s.Config.Url, apexHostname, 3)
 				notFound = &NotFoundSample{
 					Response:  notFoundResponse,
 					Threshold: threshold,
@@ -75,7 +75,7 @@ func (s *Scanner) Scan() {
 			}
 			s.notFoundMutex.Unlock()
 
-			response := s.getVHostResponse(s.Config.Url, lHostname)
+			response := s.getVHostResponse(s.Config.Url, lHostname, 1)
 			if response == nil {
 				gologger.Error().Msgf("No Response for %s", lHostname)
 				return
@@ -100,7 +100,7 @@ func (s *Scanner) Scan() {
 					redirectHost := locUrl.Host
 					locUrl.Scheme = s.Config.Url.Scheme
 					locUrl.Host = s.Config.Url.Host
-					redirectResponse := s.getVHostResponse(locUrl, redirectHost) // <------------- priority
+					redirectResponse := s.getVHostResponse(locUrl, redirectHost, 2)
 					if redirectResponse == nil {
 						gologger.Error().Msgf("No Response while following redirect %s -> %s", locUrl, redirectHost)
 						return
@@ -119,11 +119,10 @@ func (s *Scanner) Scan() {
 				}
 
 				if err != nil || Contains(s.failingApexs, apexHostname) {
-					gologger.Warning().Msgf("Skiping %s\n", lHostname)
 					return
 				}
 
-				notFoundRetry, retryThreshold := s.getNotFoundVHost(s.Config.Url, apexHostname) // <------------- priority
+				notFoundRetry, retryThreshold := s.getNotFoundVHost(s.Config.Url, apexHostname, 4)
 				if ok, _ := isDiffResponse(notFound.Response, notFoundRetry, retryThreshold); ok {
 					gologger.Error().Msgf("Possible IP ban, Ratelimit or server overload detected, status %d.", notFoundRetry.StatusCode)
 					s.failingApexs = append(s.failingApexs, apexHostname)
@@ -146,10 +145,10 @@ func (s *Scanner) Scan() {
 	wg.Wait()
 }
 
-func (s *Scanner) getNotFoundVHost(url *neturl.URL, hostname string) (*http.Response, int) {
+func (s *Scanner) getNotFoundVHost(url *neturl.URL, hostname string, priority int) (*http.Response, int) {
 	responses := []*http.Response{}
 	for {
-		resp := s.getVHostResponse(url, RandomString(12)+"."+hostname)
+		resp := s.getVHostResponse(url, RandomString(12)+"."+hostname, priority)
 
 		if resp == nil {
 			continue
@@ -204,14 +203,17 @@ func (s *Scanner) getNotFoundVHost(url *neturl.URL, hostname string) (*http.Resp
 	return responses[0], max
 }
 
-func (s *Scanner) getVHostResponse(url *neturl.URL, hostname string) *http.Response {
+func (s *Scanner) getVHostResponse(url *neturl.URL, hostname string, priority int) *http.Response {
 	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
 		gologger.Error().Msg("Failed to create request.")
 	}
 
 	req.Host = hostname
-	msg := s.client.Send(req)
+	opts := s.client.Options
+	opts.RequestPriority = httpc.Priority(priority)
+
+	msg := s.client.SendWithOptions(req, opts)
 	<-msg.Resolved
 
 	return msg.Response
