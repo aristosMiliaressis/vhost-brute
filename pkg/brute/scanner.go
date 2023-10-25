@@ -15,52 +15,81 @@ import (
 	"github.com/aristosMiliaressis/httpc/pkg/httpc"
 	"github.com/aristosMiliaressis/vhost-brute/pkg/input"
 	"github.com/projectdiscovery/gologger"
+	"golang.org/x/net/publicsuffix"
 )
 
+type NotFoundSample struct {
+	Response  *http.Response
+	Threshold int
+}
+
 type Scanner struct {
-	Config  input.Config
-	client  *httpc.HttpClient
-	context context.Context
+	Config          input.Config
+	client          *httpc.HttpClient
+	context         context.Context
+	NotFoundPerApex map[string]*NotFoundSample
+	notFoundMutex   sync.Mutex
+	failingApexs    []string
 }
 
 func NewScanner(conf input.Config) Scanner {
 	ctx := context.Background()
 
 	return Scanner{
-		Config:  conf,
-		client:  httpc.NewHttpClient(conf.Http, ctx),
-		context: ctx,
+		Config:          conf,
+		client:          httpc.NewHttpClient(conf.Http, ctx),
+		context:         ctx,
+		NotFoundPerApex: map[string]*NotFoundSample{},
+		failingApexs:    []string{},
 	}
 }
 
-func (s Scanner) Scan() {
-	notFoundResponse, threshold := s.getNotFoundVHost(s.Config.Url, s.Config.Hostnames[0])
+func (s *Scanner) Scan() {
 
 	var wg sync.WaitGroup
 	for i, hostname := range s.Config.Hostnames {
-		if hostname == "" {
-			continue
-		}
 		idx := i
 		lHostname := hostname
+
+		apexHostname, err := publicsuffix.EffectiveTLDPlusOne(lHostname)
+		if err != nil {
+			gologger.Error().Msg(err.Error())
+			continue
+		}
+
 		wg.Add(1)
 
 		go func() {
 			defer wg.Done()
+
+			s.notFoundMutex.Lock()
+			notFound := s.NotFoundPerApex[apexHostname]
+
+			if notFound == nil {
+				notFoundResponse, threshold := s.getNotFoundVHost(s.Config.Url, apexHostname)
+				notFound = &NotFoundSample{
+					Response:  notFoundResponse,
+					Threshold: threshold,
+				}
+				s.NotFoundPerApex[apexHostname] = notFound
+			}
+			s.notFoundMutex.Unlock()
 
 			response := s.getVHostResponse(s.Config.Url, lHostname)
 			if response == nil {
 				gologger.Error().Msgf("No Response for %s", lHostname)
 				return
 			}
+
 			body, _ := ioutil.ReadAll(response.Body)
+
 			response.Body = io.NopCloser(bytes.NewBuffer(body))
 
 			gologger.Info().Msgf("[#%d]\tstatus:%d\tcl:%d\tct:%s\tloc:%s\thost:%s", idx, response.StatusCode, len(body), response.Header.Get("Content-Type"), response.Header.Get("Location"), lHostname)
 
-			if ok, reason := isDiffResponse(notFoundResponse, response, threshold); ok {
+			if ok, reason := isDiffResponse(notFound.Response, response, notFound.Threshold); ok {
 
-				if response.StatusCode >= 300 && response.StatusCode <= 400 {
+				for i := 0; response.StatusCode >= 300 && response.StatusCode <= 400; i++ {
 					location := response.Header.Get("Location")
 					locUrl, err := url.Parse(location)
 					if err != nil {
@@ -69,34 +98,45 @@ func (s Scanner) Scan() {
 					}
 
 					redirectHost := locUrl.Host
+					locUrl.Scheme = s.Config.Url.Scheme
 					locUrl.Host = s.Config.Url.Host
-					redirectResponse := s.getVHostResponse(locUrl, redirectHost)
+					redirectResponse := s.getVHostResponse(locUrl, redirectHost) // <------------- priority
 					if redirectResponse == nil {
-						gologger.Error().Msgf("No Response while following redirect %s", locUrl)
+						gologger.Error().Msgf("No Response while following redirect %s -> %s", locUrl, redirectHost)
 						return
 					}
 
-					if diff, _ := isDiffResponse(response, redirectResponse, threshold); !diff || (redirectResponse.StatusCode >= 300 && redirectResponse.StatusCode < 400) {
+					if redirectResponse.StatusCode < 300 || redirectResponse.StatusCode >= 400 {
+						break
+					} else if i >= 5 {
 						return
 					}
-				} else if Contains(s.Config.FilterCodes, response.StatusCode) {
+				}
+
+				if Contains(s.Config.FilterCodes, response.StatusCode) {
 					gologger.Info().Msgf("VHost %s found on %s but status code %d is filtered.\n", lHostname, s.Config.Url.Hostname(), response.StatusCode)
 					return
 				}
 
+				if err != nil || Contains(s.failingApexs, apexHostname) {
+					gologger.Warning().Msgf("Skiping %s\n", lHostname)
+					return
+				}
+
+				notFoundRetry, retryThreshold := s.getNotFoundVHost(s.Config.Url, apexHostname) // <------------- priority
+				if ok, _ := isDiffResponse(notFound.Response, notFoundRetry, retryThreshold); ok {
+					gologger.Error().Msgf("Possible IP ban, Ratelimit or server overload detected, status %d.", notFoundRetry.StatusCode)
+					s.failingApexs = append(s.failingApexs, apexHostname)
+					return
+				}
+
 				if s.Config.OnlyUnindexed {
-					ips := getIPs(lHostname)
+					ips := getIPs(lHostname, 5)
 					if Contains(ips, s.Config.Url.Hostname()) {
 						gologger.Info().Msgf("VHost %s found on %s but dns record exists.\n", lHostname, s.Config.Url.Hostname())
 						return
 					}
 				}
-
-				// TODO: do this by comparring previous responses don't send extra req
-				// notFoundRetry := s.getVHostResponse(s.Config.Url, RandomString(12)+".example.com")
-				// if ok, _ := isDiffResponse(notFoundResponse, notFoundRetry, threshold); ok {
-				// 	gologger.Fatal().Msg("IP block detected, exiting.")
-				// }
 
 				fmt.Printf("%s %s cause %s\n", lHostname, s.Config.Url, reason)
 			}
@@ -106,7 +146,7 @@ func (s Scanner) Scan() {
 	wg.Wait()
 }
 
-func (s Scanner) getNotFoundVHost(url *neturl.URL, hostname string) (*http.Response, int) {
+func (s *Scanner) getNotFoundVHost(url *neturl.URL, hostname string) (*http.Response, int) {
 	responses := []*http.Response{}
 	for {
 		resp := s.getVHostResponse(url, RandomString(12)+"."+hostname)
@@ -164,7 +204,7 @@ func (s Scanner) getNotFoundVHost(url *neturl.URL, hostname string) (*http.Respo
 	return responses[0], max
 }
 
-func (s Scanner) getVHostResponse(url *neturl.URL, hostname string) *http.Response {
+func (s *Scanner) getVHostResponse(url *neturl.URL, hostname string) *http.Response {
 	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
 		gologger.Error().Msg("Failed to create request.")
@@ -177,12 +217,20 @@ func (s Scanner) getVHostResponse(url *neturl.URL, hostname string) *http.Respon
 	return msg.Response
 }
 
-func getIPs(hostname string) []string {
+func getIPs(hostname string, tries int) []string {
+	// use retries to mitigate false positives from dns loadbalancing
+
 	strIps := []string{}
-	ips, _ := net.LookupIP(hostname)
-	for _, ip := range ips {
-		strIps = append(strIps, ip.String())
+
+	for i := 0; i < tries; i++ {
+		ips, _ := net.LookupIP(hostname)
+		for _, ip := range ips {
+			if !Contains(strIps, ip.String()) {
+				strIps = append(strIps, ip.String())
+			}
+		}
 	}
+
 	return strIps
 }
 

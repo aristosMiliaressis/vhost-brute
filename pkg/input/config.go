@@ -25,14 +25,15 @@ type Config struct {
 	OnlyUnindexed bool
 	FilterCodes   []int
 
-	Http httpc.HttpOptions
+	Http httpc.ClientOptions
 }
 
 func ParseCliFlags() (Config, error) {
 	dfltOpts := Config{}
 	dfltOpts.Http = httpc.DefaultOptions
-	dfltOpts.Http.ErrorPercentageThreshold = 0
-	dfltOpts.Http.ConsecutiveErrorThreshold = 0
+	dfltOpts.Http.Redirection.FollowRedirects = false
+	dfltOpts.Http.ErrorHandling.ErrorPercentageThreshold = 0
+	dfltOpts.Http.ErrorHandling.ConsecutiveErrorThreshold = 0
 	var headers goflags.StringSlice
 	var hostnameFile string
 	var statusCodes string
@@ -44,11 +45,11 @@ func ParseCliFlags() (Config, error) {
 	flagSet.CreateGroup("general", "General",
 		flagSet.StringVarP(&url, "url", "u", "", "Target Url."),
 		flagSet.StringVarP(&hostnameFile, "file", "f", "", "File containing hostnames to test."),
-		flagSet.StringVarP(&dfltOpts.Http.ProxyUrl, "proxy", "p", dfltOpts.Http.ProxyUrl, "Proxy URL. For example: http://127.0.0.1:8080"),
+		flagSet.StringVarP(&dfltOpts.Http.Connection.ProxyUrl, "proxy", "p", dfltOpts.Http.Connection.ProxyUrl, "Proxy URL. For example: http://127.0.0.1:8080."),
 		flagSet.StringSliceVarP(&headers, "header", "H", nil, "Add request header.", goflags.FileStringSliceOptions),
-		flagSet.IntVarP(&dfltOpts.Http.ReqsPerSecond, "rps", "r", 3, "Request per second."),
+		flagSet.IntVarP(&dfltOpts.Http.Performance.RequestsPerSecond, "rps", "r", 3, "Request per second."),
 		flagSet.BoolVarP(&dfltOpts.OnlyUnindexed, "only-unindexed", "oU", false, "Only shows VHosts that dont have a public dns record."),
-		flagSet.StringVarP(&statusCodes, "filter-codes", "fc", "", "Filter status codes (e.g. \"429,502,503\")."),
+		flagSet.StringVarP(&statusCodes, "filter-codes", "fc", "", "Filter status codes (e.g. \"429,503,504\")."),
 		flagSet.BoolVarP(&dfltOpts.Silent, "silent", "s", false, "Suppress stderr output."),
 	)
 	flagSet.SetCustomHelpText(fmt.Sprintf(`EXAMPLE:
