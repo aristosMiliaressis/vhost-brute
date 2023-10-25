@@ -3,6 +3,7 @@ package brute
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -30,6 +31,12 @@ type Scanner struct {
 	NotFoundPerApex map[string]*NotFoundSample
 	notFoundMutex   sync.Mutex
 	failingApexs    []string
+}
+
+type VHost struct {
+	Address   string
+	Hostname  string
+	Detection string
 }
 
 func NewScanner(conf input.Config) Scanner {
@@ -137,7 +144,15 @@ func (s *Scanner) Scan() {
 					}
 				}
 
-				fmt.Printf("%s %s cause %s\n", lHostname, s.Config.Url, reason)
+				result := VHost{
+					Address:   s.Config.Url.String(),
+					Hostname:  lHostname,
+					Detection: reason,
+				}
+
+				jRes, _ := json.Marshal(result)
+
+				fmt.Println(string(jRes))
 			}
 		}()
 	}
