@@ -59,6 +59,10 @@ func (s *Scanner) Scan() {
 		idx := i
 		lHostname := hostname
 
+		if hostname == "" {
+			continue
+		}
+
 		apexHostname, err := publicsuffix.EffectiveTLDPlusOne(lHostname)
 		if err != nil {
 			gologger.Error().Msg(err.Error())
