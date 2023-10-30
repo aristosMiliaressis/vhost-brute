@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	neturl "net/url"
+	"strings"
 	"sync"
 
 	"github.com/aristosMiliaressis/httpc/pkg/httpc"
@@ -163,7 +164,7 @@ func (s *Scanner) Scan() {
 func (s *Scanner) getNotFoundVHost(url *neturl.URL, hostname string, priority int) (*http.Response, int) {
 	responses := []*http.Response{}
 	for {
-		resp := s.getVHostResponse(url, RandomString(12)+"."+hostname, priority)
+		resp := s.getVHostResponse(url, RandomString(1)+"."+hostname, priority)
 
 		if resp == nil {
 			continue
@@ -179,9 +180,47 @@ func (s *Scanner) getNotFoundVHost(url *neturl.URL, hostname string, priority in
 
 		responses = append(responses, resp)
 
-		if len(responses) == 3 {
-			break
+		break
+	}
+
+	for {
+		resp := s.getVHostResponse(url, RandomString(62)+"."+hostname, priority)
+
+		if resp == nil {
+			continue
 		}
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			gologger.Error().Msgf("ERR: %s", err)
+			continue
+		}
+
+		resp.Body = io.NopCloser(bytes.NewBuffer(body))
+
+		responses = append(responses, resp)
+
+		break
+	}
+
+	for {
+		resp := s.getVHostResponse(url, RandomString(62)+"."+RandomString(62)+"."+hostname, priority)
+
+		if resp == nil {
+			continue
+		}
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			gologger.Error().Msgf("ERR: %s", err)
+			continue
+		}
+
+		resp.Body = io.NopCloser(bytes.NewBuffer(body))
+
+		responses = append(responses, resp)
+
+		break
 	}
 
 	body1, err := ioutil.ReadAll(responses[0].Body)
@@ -212,8 +251,7 @@ func (s *Scanner) getNotFoundVHost(url *neturl.URL, hostname string, priority in
 		max = lev
 	}
 
-	// Add extra eddit distance to account for hostnames being reflected
-	max = max + 263 - len(hostname) - 13
+	max = max + 10
 
 	return responses[0], max
 }
@@ -254,6 +292,10 @@ func getIPs(hostname string, tries int) []string {
 func isDiffResponse(r1, r2 *http.Response, diffThreshold int) (bool, string) {
 	if r1.Status != r2.Status {
 		return true, fmt.Sprintf("status: %d", r2.StatusCode)
+	}
+
+	if strings.ToLower(r1.Header.Get("Content-Type")) != strings.ToLower(r2.Header.Get("Content-Type")) {
+		return true, "Content-Type"
 	}
 
 	if r1.Header.Get("Location") != r2.Header.Get("Location") {
