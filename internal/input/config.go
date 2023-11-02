@@ -32,8 +32,8 @@ func ParseCliFlags() (Config, error) {
 	dfltOpts := Config{}
 	dfltOpts.Http = httpc.DefaultOptions
 	dfltOpts.Http.Redirection.FollowRedirects = false
-	dfltOpts.Http.ErrorHandling.ErrorPercentageThreshold = 0
-	dfltOpts.Http.ErrorHandling.ConsecutiveErrorThreshold = 0
+	dfltOpts.Http.ErrorHandling.PercentageThreshold = 0
+	dfltOpts.Http.ErrorHandling.ConsecutiveThreshold = 0
 	var headers goflags.StringSlice
 	var hostnameFile string
 	var statusCodes string
