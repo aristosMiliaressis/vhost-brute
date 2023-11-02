@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/aristosMiliaressis/vhost-brute/pkg/brute"
-	"github.com/aristosMiliaressis/vhost-brute/pkg/input"
+	"github.com/aristosMiliaressis/vhost-brute/internal/brute"
+	"github.com/aristosMiliaressis/vhost-brute/internal/input"
 	"github.com/projectdiscovery/gologger"
 )
 

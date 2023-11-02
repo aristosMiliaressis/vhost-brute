@@ -15,7 +15,7 @@ import (
 	"sync"
 
 	"github.com/aristosMiliaressis/httpc/pkg/httpc"
-	"github.com/aristosMiliaressis/vhost-brute/pkg/input"
+	"github.com/aristosMiliaressis/vhost-brute/internal/input"
 	"github.com/projectdiscovery/gologger"
 	"golang.org/x/net/publicsuffix"
 )
