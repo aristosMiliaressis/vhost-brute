@@ -2,6 +2,9 @@ EXECUTABLE=vhost-brute
 WINDOWS=$(EXECUTABLE).exe
 LINUX=$(EXECUTABLE)
 
+install: build
+	mv $(LINUX) ${GOHOME}/bin
+
 build: windows linux
 
 windows:
