@@ -12,6 +12,7 @@ Virtual host detection tool.
   - uses retries to mitigate false positives from dns loadbalancing.
 - option to filter status codes.
 - request rate control.
+- integrates with cdncheck to detect waf bypass
 
 <br>
 

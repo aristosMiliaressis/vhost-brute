@@ -1,10 +1,8 @@
 package input
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
-	neturl "net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -37,13 +35,13 @@ func ParseCliFlags() (Config, error) {
 	var headers goflags.StringSlice
 	var hostnameFile string
 	var statusCodes string
-	var url string
+	var targetUrl string
 
 	flagSet := goflags.NewFlagSet()
 	flagSet.SetDescription("vhost-brute - v" + version)
 
 	flagSet.CreateGroup("general", "General",
-		flagSet.StringVarP(&url, "url", "u", "", "Target Url."),
+		flagSet.StringVarP(&targetUrl, "url", "u", "", "Target Url."),
 		flagSet.StringVarP(&hostnameFile, "file", "f", "", "File containing hostnames to test."),
 		flagSet.StringVarP(&dfltOpts.Http.Connection.ProxyUrl, "proxy", "p", dfltOpts.Http.Connection.ProxyUrl, "Proxy URL. For example: http://127.0.0.1:8080."),
 		flagSet.StringSliceVarP(&headers, "header", "H", nil, "Add request header.", goflags.FileStringSliceOptions),
@@ -60,7 +58,7 @@ func ParseCliFlags() (Config, error) {
 
 	err := flagSet.Parse()
 	if err != nil {
-		return Config{}, errors.New(fmt.Sprintf("Could not parse options: %s\n", err))
+		return Config{}, fmt.Errorf("could not parse options: %s", err)
 	}
 
 	gologger.DefaultLogger.SetMaxLevel(levels.LevelInfo)
@@ -73,9 +71,9 @@ func ParseCliFlags() (Config, error) {
 		gologger.Fatal().Msgf("Failed to read hostname file: %s", err)
 	}
 
-	dfltOpts.Url, err = neturl.Parse(url)
-	if err != nil || strings.Contains(dfltOpts.Url.Hostname(), "*") || url == "" {
-		return Config{}, errors.New(fmt.Sprintf("Invalid Url Provided: %s\n", err))
+	dfltOpts.Url, err = url.Parse(targetUrl)
+	if err != nil || strings.Contains(dfltOpts.Url.Hostname(), "*") || targetUrl == "" {
+		return Config{}, fmt.Errorf("invalid url provided: %s", err)
 	}
 
 	for _, code := range strings.Split(statusCodes, ",") {

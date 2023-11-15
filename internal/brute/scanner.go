@@ -6,16 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
-	neturl "net/url"
 	"strings"
 	"sync"
 
 	"github.com/aristosMiliaressis/httpc/pkg/httpc"
 	"github.com/aristosMiliaressis/vhost-brute/internal/input"
+	"github.com/projectdiscovery/cdncheck"
 	"github.com/projectdiscovery/gologger"
 	"golang.org/x/net/publicsuffix"
 )
@@ -32,12 +31,14 @@ type Scanner struct {
 	NotFoundPerApex map[string]*NotFoundSample
 	notFoundMutex   sync.Mutex
 	failingApexs    []string
+	cdncheck        *cdncheck.Client
 }
 
 type VHost struct {
 	Address   string
 	Hostname  string
 	Detection string
+	WafBypass string `json:"waf_bypass,omitempty"`
 }
 
 func NewScanner(conf input.Config) Scanner {
@@ -49,6 +50,7 @@ func NewScanner(conf input.Config) Scanner {
 		context:         ctx,
 		NotFoundPerApex: map[string]*NotFoundSample{},
 		failingApexs:    []string{},
+		cdncheck:        cdncheck.New(),
 	}
 }
 
@@ -93,7 +95,7 @@ func (s *Scanner) Scan() {
 				return
 			}
 
-			body, _ := ioutil.ReadAll(response.Body)
+			body, _ := io.ReadAll(response.Body)
 
 			response.Body = io.NopCloser(bytes.NewBuffer(body))
 
@@ -106,6 +108,11 @@ func (s *Scanner) Scan() {
 					locUrl, err := url.Parse(location)
 					if err != nil {
 						gologger.Error().Msgf("Error while following redirect[%s] %s", location, err)
+						return
+					}
+
+					if httpc.IsCrossOrigin(notFound.Response.Request.URL.String(), locUrl.String()) {
+						gologger.Info().Msgf("VHost %s found on %s but redirects cross origin too %s.\n", lHostname, s.Config.Url.Hostname(), locUrl)
 						return
 					}
 
@@ -125,12 +132,12 @@ func (s *Scanner) Scan() {
 					}
 				}
 
-				if Contains(s.Config.FilterCodes, response.StatusCode) {
-					gologger.Info().Msgf("VHost %s found on %s but status code %d is filtered.\n", lHostname, s.Config.Url.Hostname(), response.StatusCode)
+				if err != nil || Contains(s.failingApexs, apexHostname) {
 					return
 				}
 
-				if err != nil || Contains(s.failingApexs, apexHostname) {
+				if Contains(s.Config.FilterCodes, response.StatusCode) {
+					gologger.Info().Msgf("VHost %s found on %s but status code %d is filtered.\n", lHostname, s.Config.Url.Hostname(), response.StatusCode)
 					return
 				}
 
@@ -141,8 +148,8 @@ func (s *Scanner) Scan() {
 					return
 				}
 
+				ips := getIPs(lHostname, 5)
 				if s.Config.OnlyUnindexed {
-					ips := getIPs(lHostname, 5)
 					if Contains(ips, s.Config.Url.Hostname()) {
 						gologger.Info().Msgf("VHost %s found on %s but dns record exists.\n", lHostname, s.Config.Url.Hostname())
 						return
@@ -155,6 +162,20 @@ func (s *Scanner) Scan() {
 					Detection: reason,
 				}
 
+				if len(ips) != 0 {
+					matched, waf, err := s.cdncheck.CheckWAF(net.ParseIP(ips[0]))
+					if err != nil {
+						gologger.Error().Msg(err.Error())
+					}
+					_, waf2, err2 := s.cdncheck.CheckWAF(net.IP(s.Config.Url.Hostname()))
+					if err2 != nil {
+						gologger.Error().Msg(err2.Error())
+					}
+					if err == nil && err2 == nil && matched && waf != waf2 {
+						result.WafBypass = waf
+					}
+				}
+
 				jRes, _ := json.Marshal(result)
 
 				fmt.Println(string(jRes))
@@ -165,7 +186,7 @@ func (s *Scanner) Scan() {
 	wg.Wait()
 }
 
-func (s *Scanner) getNotFoundVHost(url *neturl.URL, hostname string, priority int) (*http.Response, int) {
+func (s *Scanner) getNotFoundVHost(url *url.URL, hostname string, priority int) (*http.Response, int) {
 	responses := []*http.Response{}
 	for {
 		resp := s.getVHostResponse(url, RandomString(1)+"."+hostname, priority)
@@ -174,7 +195,7 @@ func (s *Scanner) getNotFoundVHost(url *neturl.URL, hostname string, priority in
 			continue
 		}
 
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			gologger.Error().Msgf("ERR: %s", err)
 			continue
@@ -194,7 +215,7 @@ func (s *Scanner) getNotFoundVHost(url *neturl.URL, hostname string, priority in
 			continue
 		}
 
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			gologger.Error().Msgf("ERR: %s", err)
 			continue
@@ -214,7 +235,7 @@ func (s *Scanner) getNotFoundVHost(url *neturl.URL, hostname string, priority in
 			continue
 		}
 
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			gologger.Error().Msgf("ERR: %s", err)
 			continue
@@ -227,19 +248,19 @@ func (s *Scanner) getNotFoundVHost(url *neturl.URL, hostname string, priority in
 		break
 	}
 
-	body1, err := ioutil.ReadAll(responses[0].Body)
+	body1, err := io.ReadAll(responses[0].Body)
 	responses[0].Body = io.NopCloser(bytes.NewBuffer(body1))
 	if err != nil {
 		gologger.Error().Msgf("ERR: %s", err)
 	}
 
-	body2, err := ioutil.ReadAll(responses[1].Body)
+	body2, err := io.ReadAll(responses[1].Body)
 	if err != nil {
 		gologger.Error().Msgf("ERR: %s", err)
 	}
 	max := levenshteinDistance([]rune(string(body1)), []rune(string(body2)))
 
-	body3, err := ioutil.ReadAll(responses[2].Body)
+	body3, err := io.ReadAll(responses[2].Body)
 	if err != nil {
 		gologger.Error().Msgf("ERR: %s", err)
 	}
@@ -260,7 +281,7 @@ func (s *Scanner) getNotFoundVHost(url *neturl.URL, hostname string, priority in
 	return responses[0], max
 }
 
-func (s *Scanner) getVHostResponse(url *neturl.URL, hostname string, priority int) *http.Response {
+func (s *Scanner) getVHostResponse(url *url.URL, hostname string, priority int) *http.Response {
 	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
 		gologger.Error().Msg("Failed to create request.")
@@ -298,7 +319,7 @@ func isDiffResponse(r1, r2 *http.Response, diffThreshold int) (bool, string) {
 		return true, fmt.Sprintf("status: %d", r2.StatusCode)
 	}
 
-	if strings.ToLower(r1.Header.Get("Content-Type")) != strings.ToLower(r2.Header.Get("Content-Type")) {
+	if !strings.EqualFold(r1.Header.Get("Content-Type"), r2.Header.Get("Content-Type")) {
 		return true, "Content-Type"
 	}
 
@@ -306,10 +327,10 @@ func isDiffResponse(r1, r2 *http.Response, diffThreshold int) (bool, string) {
 		return true, "location"
 	}
 
-	body1, _ := ioutil.ReadAll(r1.Body)
+	body1, _ := io.ReadAll(r1.Body)
 	r1.Body = io.NopCloser(bytes.NewBuffer(body1))
 
-	body2, _ := ioutil.ReadAll(r2.Body)
+	body2, _ := io.ReadAll(r2.Body)
 	diff := levenshteinDistance([]rune(string(body1)), []rune(string(body2)))
 
 	return diff > diffThreshold, fmt.Sprintf("edit-distance: %d", diff)
