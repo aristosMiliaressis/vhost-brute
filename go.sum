@@ -64,6 +64,8 @@ github.com/aristosMiliaressis/httpc v0.0.0-20231102120424-ce2625eca986 h1:8hlgGu
 github.com/aristosMiliaressis/httpc v0.0.0-20231102120424-ce2625eca986/go.mod h1:hFbp8bXBjtNctNhmmSxkpztJNd5xpxVwF1FPFF5s6Ik=
 github.com/aristosMiliaressis/httpc v0.0.0-20231113144243-0a0cdc004ad4 h1:tMRPvVy3uknMqxDnQFqy/JR4Zj315tvFtJ+YNgnX65Q=
 github.com/aristosMiliaressis/httpc v0.0.0-20231113144243-0a0cdc004ad4/go.mod h1:hFbp8bXBjtNctNhmmSxkpztJNd5xpxVwF1FPFF5s6Ik=
+github.com/aristosMiliaressis/httpc v0.0.0-20231126103729-189fdbb1ac81 h1:OrnSw22bqobAqycmoU8Vq70u2VxhjEhf5lSx4fgCk+g=
+github.com/aristosMiliaressis/httpc v0.0.0-20231126103729-189fdbb1ac81/go.mod h1:hFbp8bXBjtNctNhmmSxkpztJNd5xpxVwF1FPFF5s6Ik=
 github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d h1:Byv0BzEl3/e6D5CLfI0j/7hiIEtvGVFPCZ7Ei2oq8iQ=
 github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 h1:DklsrG3dyBCFEj5IhUbnKptjxatkF07cF2ak3yi77so=
