@@ -38,7 +38,9 @@ type VHost struct {
 	Address   string
 	Hostname  string
 	Detection string
-	WafBypass string `json:"waf_bypass,omitempty"`
+	WafBypass string `json:"WafBypass,omitempty"`
+	Resolves  bool
+	Different bool
 }
 
 func NewScanner(conf input.Config) Scanner {
@@ -163,6 +165,7 @@ func (s *Scanner) Scan() {
 				}
 
 				if len(ips) != 0 {
+					result.Resolves = true
 					matched, waf, err := s.cdncheck.CheckWAF(net.ParseIP(ips[0]))
 					if err != nil {
 						gologger.Error().Msg(err.Error())
@@ -174,6 +177,21 @@ func (s *Scanner) Scan() {
 					if err == nil && err2 == nil && matched && waf != waf2 {
 						result.WafBypass = waf
 					}
+
+					opts := s.client.Options
+					opts.RequestPriority = httpc.Priority(3)
+					req, _ := http.NewRequest("GET", "https://"+result.Hostname, nil)
+					msg := s.client.SendWithOptions(req, opts)
+					<-msg.Resolved
+					if msg.Response == nil {
+						req, _ := http.NewRequest("GET", "http://"+result.Hostname, nil)
+						msg = s.client.SendWithOptions(req, opts)
+						<-msg.Resolved
+					} else {
+						result.Different = true
+					}
+
+					result.Different, _ = isDiffResponse(response, msg.Response, retryThreshold)
 				}
 
 				jRes, _ := json.Marshal(result)
@@ -315,6 +333,9 @@ func getIPs(hostname string, tries int) []string {
 }
 
 func isDiffResponse(r1, r2 *http.Response, diffThreshold int) (bool, string) {
+	if r1 == nil || r2 == nil {
+		return false, ""
+	}
 	if r1.Status != r2.Status {
 		return true, fmt.Sprintf("status: %d", r2.StatusCode)
 	}
