@@ -166,18 +166,6 @@ func (s *Scanner) Scan() {
 
 				if len(ips) != 0 {
 					result.Resolves = true
-					matched, waf, err := s.cdncheck.CheckWAF(net.ParseIP(ips[0]))
-					if err != nil {
-						gologger.Error().Msg(err.Error())
-					}
-					_, waf2, err2 := s.cdncheck.CheckWAF(net.IP(s.Config.Url.Hostname()))
-					if err2 != nil {
-						gologger.Error().Msg(err2.Error())
-					}
-					if err == nil && err2 == nil && matched && waf != waf2 {
-						result.WafBypass = waf
-					}
-
 					opts := s.client.Options
 					opts.RequestPriority = httpc.Priority(3)
 					req, _ := http.NewRequest("GET", "https://"+result.Hostname, nil)
@@ -187,11 +175,23 @@ func (s *Scanner) Scan() {
 						req, _ := http.NewRequest("GET", "http://"+result.Hostname, nil)
 						msg = s.client.SendWithOptions(req, opts)
 						<-msg.Resolved
-					} else {
-						result.Different = true
 					}
 
 					result.Different, _ = isDiffResponse(response, msg.Response, retryThreshold)
+
+					if !result.Different {
+						matched, waf, err := s.cdncheck.CheckWAF(net.ParseIP(ips[0]))
+						if err != nil {
+							gologger.Error().Msg(err.Error())
+						}
+						_, waf2, err2 := s.cdncheck.CheckWAF(net.IP(s.Config.Url.Hostname()))
+						if err2 != nil {
+							gologger.Error().Msg(err2.Error())
+						}
+						if err == nil && err2 == nil && matched && waf != waf2 {
+							result.WafBypass = waf
+						}
+					}
 				}
 
 				jRes, _ := json.Marshal(result)
