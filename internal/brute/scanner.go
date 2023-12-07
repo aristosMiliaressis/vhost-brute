@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"sync"
 
 	"github.com/aristosMiliaressis/httpc/pkg/httpc"
@@ -144,8 +143,8 @@ func (s *Scanner) Scan() {
 				}
 
 				notFoundRetry, retryThreshold := s.getNotFoundVHost(s.Config.Url, apexHostname, 4)
-				if ok, _ := isDiffResponse(notFound.Response, notFoundRetry, retryThreshold); ok {
-					gologger.Error().Msgf("Possible IP ban, Ratelimit or server overload detected, status %d.", notFoundRetry.StatusCode)
+				if ok, reason := isDiffResponse(notFound.Response, notFoundRetry, retryThreshold); ok {
+					gologger.Error().Msgf("Possible IP ban for %s, Ratelimit or server overload detected, %s.", apexHostname, reason)
 					s.failingApexs = append(s.failingApexs, apexHostname)
 					return
 				}
@@ -267,21 +266,23 @@ func (s *Scanner) getNotFoundVHost(url *url.URL, hostname string, priority int) 
 	}
 
 	body1, err := io.ReadAll(responses[0].Body)
-	responses[0].Body = io.NopCloser(bytes.NewBuffer(body1))
 	if err != nil {
 		gologger.Error().Msgf("ERR: %s", err)
 	}
+	responses[0].Body = io.NopCloser(bytes.NewBuffer(body1))
 
 	body2, err := io.ReadAll(responses[1].Body)
 	if err != nil {
 		gologger.Error().Msgf("ERR: %s", err)
 	}
+	responses[1].Body = io.NopCloser(bytes.NewBuffer(body2))
 	max := levenshteinDistance([]rune(string(body1)), []rune(string(body2)))
 
 	body3, err := io.ReadAll(responses[2].Body)
 	if err != nil {
 		gologger.Error().Msgf("ERR: %s", err)
 	}
+	responses[2].Body = io.NopCloser(bytes.NewBuffer(body3))
 
 	lev := levenshteinDistance([]rune(string(body2)), []rune(string(body3)))
 	if lev > max {
@@ -296,7 +297,7 @@ func (s *Scanner) getNotFoundVHost(url *url.URL, hostname string, priority int) 
 
 	max = max + 10
 
-	return responses[0], max
+	return responses[2], max
 }
 
 func (s *Scanner) getVHostResponse(url *url.URL, hostname string, priority int) *http.Response {
@@ -337,11 +338,7 @@ func isDiffResponse(r1, r2 *http.Response, diffThreshold int) (bool, string) {
 		return false, ""
 	}
 	if r1.Status != r2.Status {
-		return true, fmt.Sprintf("status: %d", r2.StatusCode)
-	}
-
-	if !strings.EqualFold(r1.Header.Get("Content-Type"), r2.Header.Get("Content-Type")) {
-		return true, "Content-Type"
+		return true, fmt.Sprintf("status: %s/%s", r1.Status, r2.Status)
 	}
 
 	if r1.Header.Get("Location") != r2.Header.Get("Location") {
@@ -352,7 +349,17 @@ func isDiffResponse(r1, r2 *http.Response, diffThreshold int) (bool, string) {
 	r1.Body = io.NopCloser(bytes.NewBuffer(body1))
 
 	body2, _ := io.ReadAll(r2.Body)
+	r2.Body = io.NopCloser(bytes.NewBuffer(body2))
+
 	diff := levenshteinDistance([]rune(string(body1)), []rune(string(body2)))
 
-	return diff > diffThreshold, fmt.Sprintf("edit-distance: %d", diff)
+	if diff > diffThreshold {
+		return true, fmt.Sprintf("edit-distance: %d", diff)
+	}
+
+	// if !strings.EqualFold(r1.Header.Get("Content-Type"), r2.Header.Get("Content-Type")) {
+	// 	return true, "Content-Type"
+	// }
+
+	return false, ""
 }

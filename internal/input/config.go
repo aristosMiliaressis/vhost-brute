@@ -20,6 +20,7 @@ type Config struct {
 	Hostnames []string
 
 	Silent        bool
+	Debug         bool
 	OnlyUnindexed bool
 	FilterCodes   []int
 
@@ -29,7 +30,9 @@ type Config struct {
 func ParseCliFlags() (Config, error) {
 	dfltOpts := Config{}
 	dfltOpts.Http = httpc.DefaultOptions
+	dfltOpts.Http.MaintainCookieJar = false
 	dfltOpts.Http.Redirection.FollowRedirects = false
+	dfltOpts.Http.Connection.DisableKeepAlives = true
 	dfltOpts.Http.ErrorHandling.PercentageThreshold = 0
 	dfltOpts.Http.ErrorHandling.ConsecutiveThreshold = 0
 	var headers goflags.StringSlice
@@ -49,6 +52,7 @@ func ParseCliFlags() (Config, error) {
 		flagSet.BoolVarP(&dfltOpts.OnlyUnindexed, "only-unindexed", "oU", false, "Only shows VHosts that dont have a public dns record."),
 		flagSet.StringVarP(&statusCodes, "filter-codes", "fc", "", "Filter status codes (e.g. \"429,503,504\")."),
 		flagSet.BoolVarP(&dfltOpts.Silent, "silent", "s", false, "Suppress stderr output."),
+		flagSet.BoolVarP(&dfltOpts.Debug, "debug", "d", false, "Enable debug logging on stderr."),
 	)
 	flagSet.SetCustomHelpText(fmt.Sprintf(`EXAMPLE:
 	%s -u https://1.2.3.4 -f hostnames.txt
@@ -64,6 +68,8 @@ func ParseCliFlags() (Config, error) {
 	gologger.DefaultLogger.SetMaxLevel(levels.LevelInfo)
 	if dfltOpts.Silent {
 		gologger.DefaultLogger.SetMaxLevel(levels.LevelError)
+	} else if dfltOpts.Debug {
+		gologger.DefaultLogger.SetMaxLevel(levels.LevelVerbose)
 	}
 
 	dfltOpts.Hostnames, err = ReadWordlist(hostnameFile)
