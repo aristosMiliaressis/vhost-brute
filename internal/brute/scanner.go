@@ -27,9 +27,8 @@ type Scanner struct {
 	Config          input.Config
 	client          *httpc.HttpClient
 	context         context.Context
-	NotFoundPerApex map[string]*NotFoundSample
+	NotFoundPerApex map[string][]*NotFoundSample
 	notFoundMutex   sync.Mutex
-	failingApexs    []string
 	cdncheck        *cdncheck.Client
 }
 
@@ -49,8 +48,7 @@ func NewScanner(conf input.Config) Scanner {
 		Config:          conf,
 		client:          httpc.NewHttpClient(conf.Http, ctx),
 		context:         ctx,
-		NotFoundPerApex: map[string]*NotFoundSample{},
-		failingApexs:    []string{},
+		NotFoundPerApex: map[string][]*NotFoundSample{},
 		cdncheck:        cdncheck.New(),
 	}
 }
@@ -78,16 +76,16 @@ func (s *Scanner) Scan() {
 			defer wg.Done()
 
 			s.notFoundMutex.Lock()
-			notFound := s.NotFoundPerApex[apexHostname]
 
-			if notFound == nil {
+			if len(s.NotFoundPerApex[apexHostname]) == 0 {
 				notFoundResponse, threshold := s.getNotFoundVHost(s.Config.Url, apexHostname, 3)
-				notFound = &NotFoundSample{
+
+				s.NotFoundPerApex[apexHostname] = []*NotFoundSample{{
 					Response:  notFoundResponse,
 					Threshold: threshold,
-				}
-				s.NotFoundPerApex[apexHostname] = notFound
+				}}
 			}
+			notFound := s.NotFoundPerApex[apexHostname][0]
 			s.notFoundMutex.Unlock()
 
 			response := s.getVHostResponse(s.Config.Url, lHostname, 1)
@@ -133,19 +131,21 @@ func (s *Scanner) Scan() {
 					}
 				}
 
-				if err != nil || Contains(s.failingApexs, apexHostname) {
-					return
-				}
-
 				if Contains(s.Config.FilterCodes, response.StatusCode) {
 					gologger.Info().Msgf("VHost %s found on %s but status code %d is filtered.\n", lHostname, s.Config.Url.Hostname(), response.StatusCode)
 					return
 				}
 
+				for _, notFound := range s.NotFoundPerApex[apexHostname] {
+					if ok, _ := isDiffResponse(response, notFound.Response, notFound.Threshold); !ok {
+						return
+					}
+				}
+
 				notFoundRetry, retryThreshold := s.getNotFoundVHost(s.Config.Url, apexHostname, 4)
-				if ok, reason := isDiffResponse(notFound.Response, notFoundRetry, retryThreshold); ok {
+				if ok, reason := isDiffResponse(response, notFoundRetry, retryThreshold); !ok {
 					gologger.Error().Msgf("Possible IP ban for %s, Ratelimit or server overload detected, %s.", apexHostname, reason)
-					s.failingApexs = append(s.failingApexs, apexHostname)
+					s.NotFoundPerApex[apexHostname] = append(s.NotFoundPerApex[apexHostname], &NotFoundSample{Response: notFoundRetry, Threshold: retryThreshold})
 					return
 				}
 
@@ -312,6 +312,9 @@ func (s *Scanner) getVHostResponse(url *url.URL, hostname string, priority int) 
 
 	msg := s.client.SendWithOptions(req, opts)
 	<-msg.Resolved
+	if msg.Response == nil {
+		gologger.Error().Msgf("Transport Error %s", msg.TransportError)
+	}
 
 	return msg.Response
 }
