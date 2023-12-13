@@ -42,13 +42,3 @@ EXAMPLE:
 
     ./vhost-brute -s --only-unindexed -u https://1.2.3.4 -f hostnames.txt
 ```
-
-**To Do**
-- detect if response is same or different?
-
-
-- [x] indexed by dns
-- [x] waf bypass
-- [x] filter status code
-- [x] cross origin redirect show too?
-- [ ] different response
