@@ -49,7 +49,7 @@ func ParseCliFlags() (Config, error) {
 		flagSet.StringVarP(&hostnameFile, "file", "f", "", "File containing hostnames to test."),
 		flagSet.StringVarP(&dfltOpts.Http.Connection.ProxyUrl, "proxy", "p", dfltOpts.Http.Connection.ProxyUrl, "Proxy URL. For example: http://127.0.0.1:8080."),
 		flagSet.StringSliceVarP(&headers, "header", "H", nil, "Add request header.", goflags.FileStringSliceOptions),
-		flagSet.IntVarP(&dfltOpts.Http.Performance.RequestsPerSecond, "rps", "r", 3, "Request per second."),
+		flagSet.IntVarP(&dfltOpts.Http.Performance.RequestsPerSecond, "rps", "r", 10, "Request per second."),
 		flagSet.IntVarP(&dfltOpts.Http.Performance.Timeout, "timeout", "t", 4, "Requests timeout."),
 		flagSet.BoolVarP(&dfltOpts.OnlyUnindexed, "only-unindexed", "oU", false, "Only shows VHosts that dont have a public dns record."),
 		flagSet.StringVarP(&statusCodes, "filter-codes", "fc", "", "Filter status codes (e.g. \"429,503,504\")."),
