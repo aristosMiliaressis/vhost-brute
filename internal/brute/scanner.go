@@ -28,7 +28,7 @@ type Scanner struct {
 	client          *httpc.HttpClient
 	context         context.Context
 	NotFoundPerApex map[string][]*NotFoundSample
-	notFoundMutex   sync.Mutex
+	notFoundMutex   sync.RWMutex
 	cdncheck        *cdncheck.Client
 }
 
@@ -136,16 +136,21 @@ func (s *Scanner) Scan() {
 					return
 				}
 
+				s.notFoundMutex.RLock()
 				for _, notFound := range s.NotFoundPerApex[apexHostname] {
 					if ok, _ := isDiffResponse(response, notFound.Response, notFound.Threshold); !ok {
+						s.notFoundMutex.RUnlock()
 						return
 					}
 				}
+				s.notFoundMutex.RUnlock()
 
 				notFoundRetry, retryThreshold := s.getNotFoundVHost(s.Config.Url, apexHostname, 4)
 				if ok, reason := isDiffResponse(response, notFoundRetry, retryThreshold); !ok {
 					gologger.Error().Msgf("Possible IP ban for %s, Ratelimit or server overload detected, %s.", apexHostname, reason)
+					s.notFoundMutex.Lock()
 					s.NotFoundPerApex[apexHostname] = append(s.NotFoundPerApex[apexHostname], &NotFoundSample{Response: notFoundRetry, Threshold: retryThreshold})
+					s.notFoundMutex.Unlock()
 					return
 				}
 
