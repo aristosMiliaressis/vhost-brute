@@ -3,7 +3,7 @@ WINDOWS=$(EXECUTABLE).exe
 LINUX=$(EXECUTABLE)
 
 install: build
-	mv $(LINUX) ${GOHOME}/bin
+	mv $(LINUX) ${GOPATH}/bin
 
 build: windows linux
 
