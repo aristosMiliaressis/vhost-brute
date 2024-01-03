@@ -4,7 +4,7 @@ LINUX=$(EXECUTABLE)
 GIT_HASH=$(shell git rev-parse --short HEAD)
 
 install: build
-	mv $(LINUX) ${GOHOME}/bin
+	mv $(LINUX) ${GOPATH}/bin
 
 build: windows linux
 
