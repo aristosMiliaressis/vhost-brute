@@ -6,8 +6,10 @@ import (
 	"github.com/projectdiscovery/gologger"
 )
 
+var git_hash = "unset"
+
 func main() {
-	conf, err := input.ParseCliFlags()
+	conf, err := input.ParseCliFlags(git_hash)
 	if err != nil {
 		gologger.Fatal().Msg(err.Error())
 	}

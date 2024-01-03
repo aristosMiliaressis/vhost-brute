@@ -27,7 +27,7 @@ type Config struct {
 	Http httpc.ClientOptions
 }
 
-func ParseCliFlags() (Config, error) {
+func ParseCliFlags(git_hash string) (Config, error) {
 	dfltOpts := Config{}
 	dfltOpts.Http = httpc.DefaultOptions
 	dfltOpts.Http.MaintainCookieJar = false
@@ -42,7 +42,7 @@ func ParseCliFlags() (Config, error) {
 	var targetUrl string
 
 	flagSet := goflags.NewFlagSet()
-	flagSet.SetDescription("vhost-brute - v" + version)
+	flagSet.SetDescription("vhost-brute - v" + version + "+" + git_hash)
 
 	flagSet.CreateGroup("general", "General",
 		flagSet.StringVarP(&targetUrl, "url", "u", "", "Target Url."),
