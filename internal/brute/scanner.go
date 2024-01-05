@@ -146,8 +146,8 @@ func (s *Scanner) Scan() {
 				s.notFoundMutex.RUnlock()
 
 				notFoundRetry, retryThreshold := s.getNotFoundVHost(s.Config.Url, apexHostname, 4)
-				if ok, reason := isDiffResponse(response, notFoundRetry, retryThreshold); !ok {
-					gologger.Error().Msgf("Possible IP ban for %s, Ratelimit or server overload detected, %s.", apexHostname, reason)
+				if ok, ipBanReason := isDiffResponse(response, notFoundRetry, retryThreshold); !ok {
+					gologger.Error().Msgf("Possible IP ban for %s, Ratelimit or server overload detected, %s.", apexHostname, ipBanReason)
 					s.notFoundMutex.Lock()
 					s.NotFoundPerApex[apexHostname] = append(s.NotFoundPerApex[apexHostname], &NotFoundSample{Response: notFoundRetry, Threshold: retryThreshold})
 					s.notFoundMutex.Unlock()
