@@ -20,7 +20,10 @@ cat $vhostfile | parallel -j 5 "curl -s -I -k {} > vhost_screenshots/\$(echo {} 
 generate_report_row() {
 	dnsHeaders=$(cat dns_screenshots/$(echo $1 | sed 's/.png$/.headers/'))
 	vhostHeaders=$(cat vhost_screenshots/$(echo $1 | sed 's/.png$/.headers/'))
-	headerColumn="<b>DNS Headers</b><pre>$dnsHeaders</pre><b>VHOST Headers</b><pre>$vhostHeaders</pre>"
+	hostname=$(echo $1 | sed 's/.png$//' | sed -E 's/https?-//')
+	address=$(cat * | grep '^{\"' | jq -r "select(.Hostname == \"$hostname\") | .Address" | head -n 1)
+	header="<b>$hostname at $address</b><br/><br/>"
+	headerColumn="$header<b>DNS Headers</b><pre>$dnsHeaders</pre><b>VHOST Headers</b><pre>$vhostHeaders</pre>"
 	
 	echo "<tr><td>$headerColumn</td><td><img alt='N/A' src='dns_screenshots/$1'/></td><td><img src='vhost_screenshots/$1'/></td></tr>"
 }

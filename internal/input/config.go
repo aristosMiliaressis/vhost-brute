@@ -52,14 +52,14 @@ func ParseCliFlags(git_hash string) (Config, error) {
 		flagSet.IntVarP(&dfltOpts.Http.Performance.RequestsPerSecond, "rps", "r", 10, "Request per second."),
 		flagSet.IntVarP(&dfltOpts.Http.Performance.Timeout, "timeout", "t", 4, "Requests timeout."),
 		flagSet.BoolVarP(&dfltOpts.OnlyUnindexed, "only-unindexed", "oU", false, "Only shows VHosts that dont have a public dns record."),
-		flagSet.StringVarP(&statusCodes, "filter-codes", "fc", "", "Filter status codes (e.g. \"429,503,504\")."),
+		flagSet.StringVarP(&statusCodes, "filter-codes", "fc", "", "Filter status codes (e.g. \"403,502,503,504\")."),
 		flagSet.BoolVarP(&dfltOpts.Silent, "silent", "s", false, "Suppress stderr output."),
 		flagSet.BoolVarP(&dfltOpts.Debug, "debug", "d", false, "Enable debug logging on stderr."),
 	)
 	flagSet.SetCustomHelpText(fmt.Sprintf(`EXAMPLE:
 	%s -u https://1.2.3.4 -f hostnames.txt
 	
-	%s -s --only-unindexed -fc 403,429,502,503,504,409,523,422 -u https://1.2.3.4 -f hostnames.txt
+	%s -s --only-unindexed -fc 403,502,503,504,409,523,422 -u https://1.2.3.4 -f hostnames.txt
 `, os.Args[0], os.Args[0]))
 
 	err := flagSet.Parse()
