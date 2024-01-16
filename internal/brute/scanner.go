@@ -189,7 +189,12 @@ func (s *Scanner) Scan() {
 						if err != nil {
 							gologger.Error().Msg(err.Error())
 						}
-						_, waf2, err2 := s.cdncheck.CheckWAF(net.IP(s.Config.Url.Hostname()))
+						ip := net.ParseIP(s.Config.Url.Hostname())
+						if ip == nil {
+							dnsIps, _ := net.LookupIP(s.Config.Url.Hostname())
+							ip = dnsIps[0]
+						}
+						_, waf2, err2 := s.cdncheck.CheckWAF(ip)
 						if err2 != nil {
 							gologger.Error().Msg(err2.Error())
 						}
