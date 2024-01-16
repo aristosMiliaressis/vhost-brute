@@ -6,7 +6,7 @@ vhostfile=`mktemp`
 trap "rm $dnsfile $vhostfile" EXIT
 
 cat * | grep '^{"' | jq -r .Hostname | httpx > $dnsfile
-gowitness file -f $dnsfile --disable-db -F -P ./dns_screenshots
+gowitness file --delay 5 -f $dnsfile --disable-db -F -P ./dns_screenshots
 cat $dnsfile | parallel -j 5 "curl -s -I -k {} > dns_screenshots/\$(echo {} | sed 's,://,-,').headers"
 
 cp /etc/hosts ./hosts.bak
@@ -14,7 +14,7 @@ trap "cat ./hosts.bak > /etc/hosts" EXIT
 cat * | grep '^{"' | jq -r '. | "\(.Address) \(.Hostname)"' | sed -E 's,https?://,,' | sed -E 's,:[0-9]+ , ,' >> /etc/hosts
 
 cat * | grep '^{"' | jq -r .Hostname | httpx > $vhostfile
-gowitness file -f $vhostfile --disable-db -F -P ./vhost_screenshots
+gowitness file --delay 5 -f $vhostfile --disable-db -F -P ./vhost_screenshots
 cat $vhostfile | parallel -j 5 "curl -s -I -k {} > vhost_screenshots/\$(echo {} | sed 's,://,-,').headers"
 
 generate_report_row() {
