@@ -110,8 +110,8 @@ func (s *Scanner) Scan() {
 						return
 					}
 
-					if httpc.IsCrossOrigin(notFound.Response.Request.URL.String(), locUrl.String()) {
-						gologger.Info().Msgf("VHost %s found on %s but redirects cross origin too %s.\n", lHostname, s.Config.Url.Hostname(), locUrl)
+					if locUrl.Host != "" && locUrl.Host != response.Request.Host {
+						gologger.Info().Msgf("VHost %s found on %s but redirects cross origin to %s.\n", lHostname, s.Config.Url.Hostname(), locUrl)
 						return
 					}
 
@@ -127,6 +127,7 @@ func (s *Scanner) Scan() {
 					if redirectResponse.StatusCode < 300 || redirectResponse.StatusCode >= 400 {
 						break
 					} else if i >= 5 {
+						gologger.Error().Msgf("Too many Redirects %s -> %s", locUrl, redirectHost)
 						return
 					}
 				}
