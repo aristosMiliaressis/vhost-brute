@@ -13,7 +13,7 @@ import (
 	"github.com/projectdiscovery/gologger/levels"
 )
 
-const version = "1.0.0"
+const version = "1.0.1"
 
 type Config struct {
 	Url       *url.URL
