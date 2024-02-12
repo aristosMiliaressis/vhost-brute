@@ -22,23 +22,38 @@ Virtual host detection tool.
 ```
 vhost-brute - v1.0.0
 
-Usage: 
-  ./vhost-brute [flags]
+Usage:
+  vhost-brute [flags]
 
 Flags:
-GENERAL:
-    -u, -url string            Target Url.
-    -f, -file string           File containing hostnames to test. 
-    -p, -proxy string          Proxy URL. For example: http://127.0.0.1:8080.
-    -H, -header string[]       Add request header. 
-    -r, -rps int               Requests per second.
-    -oU, -only-unindexed       Only shows VHosts that dont have a public dns record.
-    -fc, -filter-codes string  Filter status codes. (e.g. "429,503,504")
-    -s, -silent                Suppress stderr output.
+INPUT:
+   -u, -url string   Target webserver base URL.
+   -f, -file string  File containing hostnames.
+
+OUTPUT:
+   -s, -silent  Suppress stderr output.
+   -d, -debug   Enable debug logging on stderr.
+
+FILTERING:
+   -oU, -only-unindexed       Only shows VHosts that dont have a corresponding dns record.
+   -fc, -filter-codes string  Filter status codes (e.g. "403,502,503,504,530").
+
+PERFORMANCE:
+   -r, -rps int      Requests per second. (default 10)
+   -t, -timeout int  Request timeout in seconds. (default 4)
+
+MISC:
+   -p, -proxy string     Proxy URL (e.g. "http://127.0.0.1:8080")
+   -H, -header string[]  Add request header.
+   -iS, -include-sni     Includes corresponding SNI.
 
 
 EXAMPLE:
-    ./vhost-brute -u https://1.2.3.4 -f hostnames.txt
-
-    ./vhost-brute -s --only-unindexed -u https://1.2.3.4 -f hostnames.txt
+	vhost-brute -u https://1.2.3.4 -f hostnames.txt
+	
+	vhost-brute -s --only-unindexed -fc 403,502,503,504,409,521,523,422,530 -u https://1.2.3.4 -f hostnames.txt
+  
 ```
+
+ToDo
+- Include SNI
