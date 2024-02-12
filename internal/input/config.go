@@ -22,6 +22,7 @@ type Config struct {
 	Silent        bool
 	Debug         bool
 	OnlyUnindexed bool
+	IncludeSNI    bool
 	FilterCodes   []int
 
 	Http httpc.ClientOptions
@@ -44,27 +45,40 @@ func ParseCliFlags(git_hash string) (Config, error) {
 	flagSet := goflags.NewFlagSet()
 	flagSet.SetDescription("vhost-brute - v" + version + "+" + git_hash)
 
-	flagSet.CreateGroup("general", "General",
-		flagSet.StringVarP(&targetUrl, "url", "u", "", "Target Url."),
-		flagSet.StringVarP(&hostnameFile, "file", "f", "", "File containing hostnames to test."),
-		flagSet.StringVarP(&dfltOpts.Http.Connection.ProxyUrl, "proxy", "p", dfltOpts.Http.Connection.ProxyUrl, "Proxy URL. For example: http://127.0.0.1:8080."),
-		flagSet.StringSliceVarP(&headers, "header", "H", nil, "Add request header.", goflags.FileStringSliceOptions),
-		flagSet.IntVarP(&dfltOpts.Http.Performance.RequestsPerSecond, "rps", "r", 10, "Request per second."),
-		flagSet.IntVarP(&dfltOpts.Http.Performance.Timeout, "timeout", "t", 4, "Requests timeout."),
-		flagSet.BoolVarP(&dfltOpts.OnlyUnindexed, "only-unindexed", "oU", false, "Only shows VHosts that dont have a public dns record."),
-		flagSet.StringVarP(&statusCodes, "filter-codes", "fc", "", "Filter status codes (e.g. \"403,502,503,504\")."),
+	flagSet.CreateGroup("input", "Input",
+		flagSet.StringVarP(&targetUrl, "url", "u", "", "Target webserver base URL."),
+		flagSet.StringVarP(&hostnameFile, "file", "f", "", "File containing hostnames."),
+	)
+	
+	flagSet.CreateGroup("output", "Output",
 		flagSet.BoolVarP(&dfltOpts.Silent, "silent", "s", false, "Suppress stderr output."),
 		flagSet.BoolVarP(&dfltOpts.Debug, "debug", "d", false, "Enable debug logging on stderr."),
+	)
+	
+	flagSet.CreateGroup("filtering", "Filtering",
+		flagSet.BoolVarP(&dfltOpts.OnlyUnindexed, "only-unindexed", "oU", false, "Only shows VHosts that dont have a corresponding dns record."),
+		flagSet.StringVarP(&statusCodes, "filter-codes", "fc", "", "Filter status codes (e.g. \"403,502,503,504,530\")."),
+	)
+	
+	flagSet.CreateGroup("performance", "Performance",
+		flagSet.IntVarP(&dfltOpts.Http.Performance.RequestsPerSecond, "rps", "r", 10, "Requests per second."),
+		flagSet.IntVarP(&dfltOpts.Http.Performance.Timeout, "timeout", "t", 4, "Request timeout in seconds."),
+	)
+	
+	flagSet.CreateGroup("misc", "Misc",
+		flagSet.StringVarP(&dfltOpts.Http.Connection.ProxyUrl, "proxy", "p", dfltOpts.Http.Connection.ProxyUrl, "Proxy URL (e.g. \"http://127.0.0.1:8080\")"),
+		flagSet.StringSliceVarP(&headers, "header", "H", nil, "Add request header.", goflags.FileStringSliceOptions),
+		flagSet.BoolVarP(&dfltOpts.IncludeSNI, "include-sni", "iS", false, "Includes corresponding SNI."),
 	)
 	flagSet.SetCustomHelpText(fmt.Sprintf(`EXAMPLE:
 	%s -u https://1.2.3.4 -f hostnames.txt
 	
-	%s -s --only-unindexed -fc 403,502,503,504,409,523,422 -u https://1.2.3.4 -f hostnames.txt
+	%s -s --only-unindexed -fc 403,502,503,504,409,521,523,422,530 -u https://1.2.3.4 -f hostnames.txt
 `, os.Args[0], os.Args[0]))
 
 	err := flagSet.Parse()
 	if err != nil {
-		return Config{}, fmt.Errorf("could not parse options: %s", err)
+		return Config{}, fmt.Errorf("input: could not parse options: %s", err)
 	}
 
 	gologger.DefaultLogger.SetMaxLevel(levels.LevelInfo)
@@ -81,7 +95,7 @@ func ParseCliFlags(git_hash string) (Config, error) {
 
 	dfltOpts.Url, err = url.Parse(targetUrl)
 	if err != nil || strings.Contains(dfltOpts.Url.Hostname(), "*") || targetUrl == "" {
-		return Config{}, fmt.Errorf("invalid url provided: %s", err)
+		return Config{}, fmt.Errorf("input: invalid url provided: %s", err)
 	}
 
 	for _, code := range strings.Split(statusCodes, ",") {
