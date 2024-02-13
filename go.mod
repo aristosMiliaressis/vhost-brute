@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/aristosMiliaressis/httpc v0.0.0-20240213065833-72e676db67f6
+	github.com/projectdiscovery/cdncheck v1.0.9
 	github.com/projectdiscovery/goflags v0.1.22
 	github.com/projectdiscovery/gologger v1.1.11
 	golang.org/x/net v0.17.0
@@ -48,7 +49,6 @@ require (
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/projectdiscovery/blackrock v0.0.1 // indirect
-	github.com/projectdiscovery/cdncheck v1.0.9 // indirect
 	github.com/projectdiscovery/fastdialer v0.0.34 // indirect
 	github.com/projectdiscovery/hmap v0.0.13 // indirect
 	github.com/projectdiscovery/networkpolicy v0.0.6 // indirect
