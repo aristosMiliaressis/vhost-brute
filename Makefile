@@ -3,7 +3,7 @@ WINDOWS=$(EXECUTABLE).exe
 LINUX=$(EXECUTABLE)
 GIT_HASH=$(shell git rev-parse --short HEAD)
 
-install: build
+install: linux
 	mv $(LINUX) ${GOPATH}/bin
 
 build: windows linux
