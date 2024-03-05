@@ -3,7 +3,7 @@ module github.com/aristosMiliaressis/vhost-brute
 go 1.20
 
 require (
-	github.com/aristosMiliaressis/httpc v0.0.0-20240213065833-72e676db67f6
+	github.com/aristosMiliaressis/httpc v0.0.0-20240301100154-0ae64b71986e
 	github.com/projectdiscovery/cdncheck v1.0.9
 	github.com/projectdiscovery/goflags v0.1.22
 	github.com/projectdiscovery/gologger v1.1.11

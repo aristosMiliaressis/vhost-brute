@@ -6,8 +6,8 @@ github.com/andybalholm/brotli v1.0.4 h1:V7DdXeJtZscaqfNuAdSRuRFzuiKlHSC/Zh3zl9qY
 github.com/andybalholm/brotli v1.0.4/go.mod h1:fO7iG3H7G2nSZ7m0zPUDn85XEX2GTukHGRSepvi9Eig=
 github.com/aristosMiliaressis/go-ip-rotate v0.0.0-20230729195240-81191f0c2877 h1:0xoGj/Ep32m6CvkCvzBpJG+SgtIdAyVF5K00CdbuZuc=
 github.com/aristosMiliaressis/go-ip-rotate v0.0.0-20230729195240-81191f0c2877/go.mod h1:sYYaOEL8inJMausfutd913mvSONnS0QOM1heUj4j4Gg=
-github.com/aristosMiliaressis/httpc v0.0.0-20240213065833-72e676db67f6 h1:iWZU3iYAt2xVg/p3mNb4ObGS2Aev3niK7cd5mVwMEbg=
-github.com/aristosMiliaressis/httpc v0.0.0-20240213065833-72e676db67f6/go.mod h1:hFbp8bXBjtNctNhmmSxkpztJNd5xpxVwF1FPFF5s6Ik=
+github.com/aristosMiliaressis/httpc v0.0.0-20240301100154-0ae64b71986e h1:c80fEMu+6dDvbHEKentqW3mnnoZUpMcTzbzBX2m+mWY=
+github.com/aristosMiliaressis/httpc v0.0.0-20240301100154-0ae64b71986e/go.mod h1:hFbp8bXBjtNctNhmmSxkpztJNd5xpxVwF1FPFF5s6Ik=
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 h1:DklsrG3dyBCFEj5IhUbnKptjxatkF07cF2ak3yi77so=
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
 github.com/aws/aws-sdk-go-v2 v1.19.1 h1:STs0lbbpXu3byTPcnRLghs2DH0yk9qKDo27TyyJSKsM=
