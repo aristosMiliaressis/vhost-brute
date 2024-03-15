@@ -61,7 +61,7 @@ func ParseCliFlags(git_hash string) (Config, error) {
 	)
 	
 	flagSet.CreateGroup("performance", "Performance",
-		flagSet.IntVarP(&dfltOpts.Http.Performance.RequestsPerSecond, "rps", "r", 10, "Requests per second."),
+		flagSet.IntVarP(&dfltOpts.Http.Performance.RequestsPerSecond, "rps", "r", 20, "Requests per second."),
 		flagSet.IntVarP(&dfltOpts.Http.Performance.Timeout, "timeout", "t", 4, "Request timeout in seconds."),
 	)
 	

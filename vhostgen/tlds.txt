@@ -1,0 +1,13 @@
+int
+internal
+local
+localhost
+dev
+corp
+pci
+intranet
+private
+network
+vm
+lan
+test
