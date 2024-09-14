@@ -1,4 +1,5 @@
 #!/bin/bash
+# Dependencies: unfurl, altdns
 
 if [[ $# -lt 1 ]]
 then
@@ -20,9 +21,9 @@ done > $tld_alts
 
 while read domain
 do
-    gotator -silent -sub $hostnames -perm $alt_wordlist -depth 1 -numbers 2 > ${domain}_gotator.out
+    altdns -i $hostnames -o ${domain}_altdns.out -w $alt_wordlist
     cat $sub_wordlist | xargs -I% echo "%s.$(echo $domain | unfurl format %r.%t)" >> $sub_alts
 done < <(cat $hostnames | unfurl format %r.%t | sort -u)
 
-cat $tld_alts $sub_alts *_gotator.out | sort -u
-rm $tld_alts $sub_alts *_gotator.out
+cat $tld_alts $sub_alts *_altdns.out | tr -d '\r' | sort -u
+rm $tld_alts $sub_alts *_altdns.out

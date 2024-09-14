@@ -1,21 +1,42 @@
 #!/bin/bash
 # Dependencies: gowitness, httpx, parallel, jq
+set -xu
 
 dnsfile=`mktemp`
 vhostfile=`mktemp`
-trap "rm $dnsfile $vhostfile" EXIT
 
-cat * | grep '^{"' | jq -r .Hostname | httpx > $dnsfile
+cat * \
+	| grep '^{"' \
+	| while read entry; do \
+		addr=$(echo $entry | jq -r .Address); \
+		host=$(echo $entry | jq -r .Hostname); \
+		echo "$(echo $addr | unfurl format %s)://$host$(echo $addr | unfurl format %:%P)"; \
+	done > $dnsfile
+
 gowitness file --delay 5 -f $dnsfile --disable-db -F -P ./dns_screenshots
 cat $dnsfile | parallel -j 5 "curl -s -I -k {} > dns_screenshots/\$(echo {} | sed 's,://,-,').headers"
+rm $dnsfile 
 
-cp /etc/hosts ./hosts.bak
-trap "cat ./hosts.bak > /etc/hosts" EXIT
-cat * | grep '^{"' | jq -r '. | "\(.Address) \(.Hostname)"' | sed -E 's,https?://,,' | sed -E 's,:[0-9]+ , ,' >> /etc/hosts
+screenshot_vhosts() {
+	cp /etc/hosts ./hosts.bak
+	cat $1 | grep '^{"' | jq -r '. | "\(.Address) \(.Hostname)"' | sed -E 's,https?://,,' | sed -E 's,:[0-9]+ , ,' >> /etc/hosts
 
-cat * | grep '^{"' | jq -r .Hostname | httpx > $vhostfile
-gowitness file --delay 5 -f $vhostfile --disable-db -F -P ./vhost_screenshots
-cat $vhostfile | parallel -j 5 "curl -s -I -k {} > vhost_screenshots/\$(echo {} | sed 's,://,-,').headers"
+	cat $1 \
+		| grep '^{"' \
+		| while read entry; do \
+			addr=$(echo $entry | jq -r .Address); \
+			host=$(echo $entry | jq -r .Hostname); \
+			echo "$(echo $addr | unfurl format %s)://$host$(echo $addr | unfurl format %:%P)"; \
+		done > $vhostfile
+	
+	gowitness file --delay 5 -f $vhostfile --disable-db -F -P ./vhost_screenshots
+	cat $vhostfile | parallel -j 5 "curl -s -I -k {} > vhost_screenshots/\$(echo {} | sed 's,://,-,').headers"
+	
+	cat ./hosts.bak > /etc/hosts
+}
+
+ls *.json | while read file; do screenshot_vhosts $file; done
+rm $vhostfile
 
 generate_report_row() {
 	dnsHeaders=$(cat dns_screenshots/$(echo $1 | sed 's/.png$/.headers/'))

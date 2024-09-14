@@ -57,7 +57,7 @@ func ParseCliFlags(git_hash string) (Config, error) {
 	
 	flagSet.CreateGroup("filtering", "Filtering",
 		flagSet.BoolVarP(&dfltOpts.OnlyUnindexed, "only-unindexed", "oU", false, "Only shows VHosts that dont have a corresponding dns record."),
-		flagSet.StringVarP(&statusCodes, "filter-codes", "fc", "", "Filter status codes (e.g. \"403,502,503,504,530\")."),
+		flagSet.StringVarP(&statusCodes, "filter-codes", "fc", "", "Filter status codes (e.g. \"409,502,503,504,521,523,422,530\")."),
 	)
 	
 	flagSet.CreateGroup("performance", "Performance",
@@ -73,7 +73,7 @@ func ParseCliFlags(git_hash string) (Config, error) {
 	flagSet.SetCustomHelpText(fmt.Sprintf(`EXAMPLE:
 	%s -u https://1.2.3.4 -f hostnames.txt
 	
-	%s -s --only-unindexed -fc 403,502,503,504,409,521,523,422,530 -u https://1.2.3.4 -f hostnames.txt
+	%s -s --only-unindexed -fc 502,503,504,409,521,523,422,530 -u https://1.2.3.4 -f hostnames.txt
 `, os.Args[0], os.Args[0]))
 
 	err := flagSet.Parse()

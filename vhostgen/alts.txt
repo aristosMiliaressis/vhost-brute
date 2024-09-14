@@ -10,6 +10,8 @@ prd
 prod
 production
 k8s
+aws
+gcp
 main
 app
 int
@@ -28,8 +30,6 @@ alpha
 beta
 dv
 dev
-devl
-devlp
 devel
 develop
 development
@@ -46,6 +46,10 @@ sandbox
 demo
 val
 docs
-info
-site
-user
+green
+blue
+mobile
+oauth
+devops
+account
+accounts
