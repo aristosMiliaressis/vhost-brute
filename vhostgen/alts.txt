@@ -50,6 +50,6 @@ green
 blue
 mobile
 oauth
-devops
+ops
 account
 accounts
