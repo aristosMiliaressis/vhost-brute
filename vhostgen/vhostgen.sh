@@ -8,11 +8,12 @@ then
 fi
 
 hostnames=$1
-tld_wordlist='tlds.txt'
-alt_wordlist='alts.txt'
-sub_wordlist='subs.txt'
+tld_wordlist="$(dirname $(realpath $0))/tlds.txt"
+alt_wordlist="$(dirname $(realpath $0))/alts.txt"
+sub_wordlist="$(dirname $(realpath $0))/subs.txt"
 tld_alts=`mktemp`
 sub_alts=`mktemp`
+trap "rm $tld_alts $sub_alts *_altdns.out" EXIT
 
 for domain in $(cat $hostnames)
 do
@@ -25,5 +26,4 @@ do
     cat $sub_wordlist | xargs -I% echo "%s.$(echo $domain | unfurl format %r.%t)" >> $sub_alts
 done < <(cat $hostnames | unfurl format %r.%t | sort -u)
 
-cat $tld_alts $sub_alts *_altdns.out | tr -d '\r' | sort -u
-rm $tld_alts $sub_alts *_altdns.out
+cat $tld_alts $sub_alts *_altdns.out | grep -v '^\.' | tr -d '\r' | sort -u
