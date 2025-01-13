@@ -15,6 +15,7 @@ gcp
 main
 app
 int
+internal
 eng
 admin
 portal
@@ -50,6 +51,5 @@ green
 blue
 mobile
 oauth
-devops
+ops
 account
-accounts
