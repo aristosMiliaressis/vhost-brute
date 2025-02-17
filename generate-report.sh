@@ -5,6 +5,8 @@ set -xu
 dnsfile=`mktemp`
 vhostfile=`mktemp`
 
+ls | while read file; do cat $file | grep '^{' || rm $file; done
+
 cat * \
 	| grep '^{"' \
 	| while read entry; do \
@@ -13,7 +15,7 @@ cat * \
 		echo "$(echo $addr | unfurl format %s)://$host$(echo $addr | unfurl format %:%P)"; \
 	done > $dnsfile
 
-gowitness file --delay 5 -f $dnsfile --disable-db -F -P ./dns_screenshots
+gowitness file --delay 5 -f $dnsfile --disable-db -F -P ./dns_screenshots --chrome-path /usr/bin/google-chrome
 cat $dnsfile | parallel -j 5 "curl -s -I -k {} > dns_screenshots/\$(echo {} | sed 's,://,-,').headers"
 rm $dnsfile 
 
@@ -29,7 +31,7 @@ screenshot_vhosts() {
 			echo "$(echo $addr | unfurl format %s)://$host$(echo $addr | unfurl format %:%P)"; \
 		done > $vhostfile
 	
-	gowitness file --delay 5 -f $vhostfile --disable-db -F -P ./vhost_screenshots
+	gowitness file --delay 5 -f $vhostfile --disable-db -F -P ./vhost_screenshots --chrome-path /usr/bin/google-chrome
 	cat $vhostfile | parallel -j 5 "curl -s -I -k {} > vhost_screenshots/\$(echo {} | sed 's,://,-,').headers"
 	
 	cat ./hosts.bak > /etc/hosts

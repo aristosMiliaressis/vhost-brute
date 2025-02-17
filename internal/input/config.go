@@ -19,11 +19,11 @@ type Config struct {
 	Url       *url.URL
 	Hostnames []string
 
-	Silent        bool
+	LogLevel      string
 	Debug         bool
 	OnlyUnindexed bool
-	IncludeSNI    bool
 	FilterCodes   []int
+	ResponseDir   string
 
 	Http httpc.ClientOptions
 }
@@ -42,6 +42,12 @@ func ParseCliFlags(git_hash string) (Config, error) {
 	var statusCodes string
 	var targetUrl string
 
+	stderrLogLevels := goflags.AllowdTypes{
+		"silent":  goflags.EnumVariable(0),
+		"default": goflags.EnumVariable(1),
+		"verbose": goflags.EnumVariable(2),
+	}
+
 	flagSet := goflags.NewFlagSet()
 	flagSet.SetDescription("vhost-brute - v" + version + "+" + git_hash)
 
@@ -49,26 +55,26 @@ func ParseCliFlags(git_hash string) (Config, error) {
 		flagSet.StringVarP(&targetUrl, "url", "u", "", "Target webserver base URL."),
 		flagSet.StringVarP(&hostnameFile, "file", "f", "", "File containing hostnames."),
 	)
-	
+
 	flagSet.CreateGroup("output", "Output",
-		flagSet.BoolVarP(&dfltOpts.Silent, "silent", "s", false, "Suppress stderr output."),
-		flagSet.BoolVarP(&dfltOpts.Debug, "debug", "d", false, "Enable debug logging on stderr."),
+		flagSet.EnumVarP(&dfltOpts.LogLevel, "log", "l", goflags.EnumVariable(1), "Stderr log level (silent/default/verbose)", stderrLogLevels),
+		flagSet.BoolVarP(&dfltOpts.Debug, "debug", "d", false, "Prints statistics at the end."),
+		flagSet.StringVarP(&dfltOpts.ResponseDir, "response-dir", "rD", "", "Store matched responses at this directory"),
 	)
-	
+
 	flagSet.CreateGroup("filtering", "Filtering",
 		flagSet.BoolVarP(&dfltOpts.OnlyUnindexed, "only-unindexed", "oU", false, "Only shows VHosts that dont have a corresponding dns record."),
-		flagSet.StringVarP(&statusCodes, "filter-codes", "fc", "", "Filter status codes (e.g. \"409,502,503,504,521,523,422,530\")."),
+		flagSet.StringVarP(&statusCodes, "filter-codes", "fc", "", "Filter status codes (e.g. \"409,421,422,502,503,504,521,523,530\")."),
 	)
-	
+
 	flagSet.CreateGroup("performance", "Performance",
 		flagSet.IntVarP(&dfltOpts.Http.Performance.RequestsPerSecond, "rps", "r", 20, "Requests per second."),
-		flagSet.IntVarP(&dfltOpts.Http.Performance.Timeout, "timeout", "t", 4, "Request timeout in seconds."),
+		flagSet.IntVarP(&dfltOpts.Http.Performance.Timeout, "timeout", "t", 5, "Request timeout in seconds."),
 	)
-	
+
 	flagSet.CreateGroup("misc", "Misc",
 		flagSet.StringVarP(&dfltOpts.Http.Connection.ProxyUrl, "proxy", "p", dfltOpts.Http.Connection.ProxyUrl, "Proxy URL (e.g. \"http://127.0.0.1:8080\")"),
 		flagSet.StringSliceVarP(&headers, "header", "H", nil, "Add request header.", goflags.FileStringSliceOptions),
-		flagSet.BoolVarP(&dfltOpts.IncludeSNI, "include-sni", "iS", false, "Includes corresponding SNI."),
 	)
 	flagSet.SetCustomHelpText(fmt.Sprintf(`EXAMPLE:
 	%s -u https://1.2.3.4 -f hostnames.txt
@@ -82,9 +88,9 @@ func ParseCliFlags(git_hash string) (Config, error) {
 	}
 
 	gologger.DefaultLogger.SetMaxLevel(levels.LevelInfo)
-	if dfltOpts.Silent {
+	if dfltOpts.LogLevel == "silent" {
 		gologger.DefaultLogger.SetMaxLevel(levels.LevelError)
-	} else if dfltOpts.Debug {
+	} else if dfltOpts.LogLevel == "verbose" {
 		gologger.DefaultLogger.SetMaxLevel(levels.LevelVerbose)
 	}
 

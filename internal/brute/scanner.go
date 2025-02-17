@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/aristosMiliaressis/httpc/pkg/httpc"
@@ -23,36 +24,38 @@ type NotFoundSample struct {
 	Threshold int
 }
 
+type VHost struct {
+	Address    string
+	Hostname   string
+	Comparison ComparisonResult
+	WafBypass  string `json:"WafBypass,omitempty"`
+	Detection  string
+}
+
 type Scanner struct {
 	Config          input.Config
 	client          *httpc.HttpClient
 	context         context.Context
 	NotFoundPerApex map[string][]NotFoundSample
+	FoundVHosts     []*http.Response
 	notFoundMutex   sync.RWMutex
 	cdncheck        *cdncheck.Client
 }
 
-type VHost struct {
-	Address   string
-	Hostname  string
-	Comparison ComparisonResult
-	WafBypass string `json:"WafBypass,omitempty"`
-	Detection string
-}
-
 type ComparisonResult int
-const (  
-	SAME ComparisonResult = iota 
+
+const (
+	SAME ComparisonResult = iota
 	DIFFERENT
 	NEW
 )
 
 func (cr ComparisonResult) String() string {
-    return []string{"SAME", "DIFFERENT", "NEW"}[cr]
+	return []string{"SAME", "DIFFERENT", "NEW"}[cr]
 }
 
 func (cr ComparisonResult) MarshalJSON() ([]byte, error) {
-    return json.Marshal(cr.String())
+	return json.Marshal(cr.String())
 }
 
 func NewScanner(conf input.Config) Scanner {
@@ -63,6 +66,7 @@ func NewScanner(conf input.Config) Scanner {
 		client:          httpc.NewHttpClient(conf.Http, ctx),
 		context:         ctx,
 		NotFoundPerApex: map[string][]NotFoundSample{},
+		FoundVHosts:     []*http.Response{},
 		cdncheck:        cdncheck.New(),
 	}
 }
@@ -77,26 +81,24 @@ func (s *Scanner) Scan() {
 
 		idx := i
 		lHostname := hostname
-		
-		apexHostname, err := publicsuffix.EffectiveTLDPlusOne(lHostname)
-		if err != nil {
-			gologger.Error().Msg(err.Error())
-			continue
-		}
 
 		wg.Add(1)
 
 		go func() {
 			defer wg.Done()
 
-			s.notFoundMutex.Lock()
-
-			if len(s.NotFoundPerApex[apexHostname]) == 0 {
-				notFoundSample := s.getNotFoundSample(s.Config.Url, apexHostname, 3)
-
-				s.NotFoundPerApex[apexHostname] = []NotFoundSample{notFoundSample}
+			apexHostname, err := publicsuffix.EffectiveTLDPlusOne(lHostname)
+			if err != nil {
+				gologger.Error().Msg(err.Error())
+				return
 			}
-			notFound := s.NotFoundPerApex[apexHostname][0]
+
+			s.notFoundMutex.Lock()
+			if len(s.NotFoundPerApex[apexHostname]) == 0 {
+				notFoundBaseline := s.getNotFoundPageBaseline(s.Config.Url, apexHostname, 3)
+
+				s.NotFoundPerApex[apexHostname] = []NotFoundSample{notFoundBaseline}
+			}
 			s.notFoundMutex.Unlock()
 
 			response := s.probeVHost(s.Config.Url, lHostname, 1)
@@ -111,91 +113,82 @@ func (s *Scanner) Scan() {
 
 			gologger.Info().Msgf("[#%d]\tstatus:%d\tcl:%d\tct:%s\tloc:%s\thost:%s", idx, response.StatusCode, len(body), response.Header.Get("Content-Type"), response.Header.Get("Location"), lHostname)
 
-			if ok, reason := isDiffResponse(notFound.Response, response, notFound.Threshold); ok {
-
-				for i := 0; response.StatusCode >= 300 && response.StatusCode <= 400; i++ {
-					location := response.Header.Get("Location")
-					locUrl, err := url.Parse(location)
-					if err != nil {
-						gologger.Error().Msgf("Error while following redirect[%s] %s", location, err)
-						return
-					}
-
-					if locUrl.Host != "" && locUrl.Host != response.Request.Host {
-						gologger.Info().Msgf("VHost %s found on %s but redirects cross origin to %s.\n", lHostname, s.Config.Url.Hostname(), locUrl)
-						return
-					}
-
-					redirectHost := locUrl.Host
-					locUrl.Scheme = s.Config.Url.Scheme
-					locUrl.Host = s.Config.Url.Host
-					redirectResponse := s.probeVHost(locUrl, redirectHost, 2)
-					if redirectResponse == nil {
-						gologger.Error().Msgf("No Response while following redirect %s -> %s", locUrl, redirectHost)
-						return
-					}
-
-					if redirectResponse.StatusCode < 300 || redirectResponse.StatusCode >= 400 {
-						break
-					} else if i >= 5 {
-						gologger.Error().Msgf("Too many Redirects %s -> %s", locUrl, redirectHost)
-						return
-					}
-				}
-
-				s.notFoundMutex.RLock()
-				for _, notFound := range s.NotFoundPerApex[apexHostname] {
-					if ok, _ := isDiffResponse(response, notFound.Response, notFound.Threshold); !ok {
-						s.notFoundMutex.RUnlock()
-						return
-					}
-				}
-				s.notFoundMutex.RUnlock()
-
-				notFoundSample := s.getNotFoundSample(s.Config.Url, apexHostname, 4)
-				if ok, ipBanReason := isDiffResponse(response, notFoundSample.Response, notFoundSample.Threshold); !ok {
-					gologger.Error().Msgf("Possible IP ban for %s, Ratelimit or server overload detected, %s.", apexHostname, ipBanReason)
-					s.notFoundMutex.Lock()
-					s.NotFoundPerApex[apexHostname] = append(s.NotFoundPerApex[apexHostname], notFoundSample)
-					s.notFoundMutex.Unlock()
-					return
-				}
-
-				ips := getIPs(lHostname, 5)
-				if s.Config.OnlyUnindexed {
-					if Contains(ips, s.Config.Url.Hostname()) {
-						gologger.Info().Msgf("VHost %s found on %s but dns record exists.\n", lHostname, s.Config.Url.Hostname())
-						return
-					}
-				}
-
-				vhost := VHost{
-					Address:   s.Config.Url.String(),
-					Hostname:  lHostname,
-					Detection: reason,
-					Comparison: NEW,
-				}
-
-				if len(ips) != 0 {
-					s.testWafBypass(vhost, ips, response, notFoundSample.Threshold)
-				}
-				
-				if vhost.Comparison != SAME && Contains(s.Config.FilterCodes, response.StatusCode) {
-					gologger.Info().Msgf("VHost %s found on %s but status code %d is filtered.\n", lHostname, s.Config.Url.Hostname(), response.StatusCode)
-					return
-				}
-
-				jRes, _ := json.Marshal(vhost)
-
-				fmt.Println(string(jRes))
+			vhost := VHost{
+				Address:    s.Config.Url.String(),
+				Hostname:   lHostname,
+				Comparison: NEW,
 			}
+
+			s.notFoundMutex.RLock()
+			for _, notFound := range s.NotFoundPerApex[apexHostname] {
+				diff, reason := isDiffResponse(notFound.Response, response, notFound.Threshold)
+				if !diff {
+					s.notFoundMutex.RUnlock()
+					return
+				}
+				vhost.Detection = reason
+			}
+			s.notFoundMutex.RUnlock()
+
+			if vhost.Detection == "location" {
+				if strings.Contains(response.Header.Get("Location"), lHostname) {
+					return
+				}
+			}
+
+			count := 0
+			for _, v := range s.FoundVHosts {
+				if diff, _ := isDiffResponse(v, response, 30); !diff {
+					count++
+				}
+			}
+			s.FoundVHosts = append(s.FoundVHosts, response)
+			if count > 3 {
+				return
+			}
+
+			notFoundSample := s.getNotFoundPageBaseline(s.Config.Url, apexHostname, 4)
+			if ok, ipBanReason := isDiffResponse(notFoundSample.Response, response, notFoundSample.Threshold); !ok {
+				gologger.Error().Msgf("Possible IP ban for %s, Ratelimit or server overload detected, %s.", apexHostname, ipBanReason)
+				s.notFoundMutex.Lock()
+				s.NotFoundPerApex[apexHostname] = append(s.NotFoundPerApex[apexHostname], notFoundSample)
+				s.notFoundMutex.Unlock()
+				return
+			}
+
+			ips := getIPs(lHostname, 5)
+			if s.Config.OnlyUnindexed && Contains(ips, s.Config.Url.Hostname()) {
+				gologger.Info().Msgf("VHost %s found on %s but matches dns record.\n", lHostname, s.Config.Url.Hostname())
+				return
+			}
+
+			if vhost.Comparison != SAME && Contains(s.Config.FilterCodes, response.StatusCode) {
+				gologger.Info().Msgf("VHost %s found on %s but status code %d is filtered.\n", lHostname, s.Config.Url.Hostname(), response.StatusCode)
+				return
+			}
+
+			if len(ips) != 0 {
+				s.testWafBypass(&vhost, ips, response, s.NotFoundPerApex[apexHostname][0].Threshold)
+			}
+
+			if s.Config.ResponseDir != "" {
+				StoreResponse(response, s.Config.ResponseDir)
+			}
+
+			jRes, _ := json.Marshal(vhost)
+
+			fmt.Println(string(jRes))
 		}()
 	}
 
 	wg.Wait()
+
+	if s.Config.Debug {
+		gologger.Info().Msg(s.client.GetErrorSummary())
+	}
 }
 
-func (s *Scanner) getNotFoundSample(url *url.URL, hostname string, priority int) NotFoundSample {
+func (s *Scanner) getNotFoundPageBaseline(url *url.URL, hostname string, priority int) NotFoundSample {
 	responses := []*http.Response{}
 	for {
 		resp := s.probeVHost(url, RandomString(1)+"."+hostname, priority)
@@ -301,11 +294,7 @@ func (s *Scanner) probeVHost(url *url.URL, hostname string, priority int) *http.
 	req.Host = hostname
 	opts := s.client.Options
 	opts.RequestPriority = httpc.Priority(priority)
-
-	if s.Config.IncludeSNI {
-		opts.Connection.SNI = hostname
-	}
-	
+	opts.Connection.SNI = hostname
 	msg := s.client.SendWithOptions(req, opts)
 	<-msg.Resolved
 	if msg.Response == nil {
@@ -323,7 +312,11 @@ func isDiffResponse(r1, r2 *http.Response, diffThreshold int) (bool, string) {
 		return true, fmt.Sprintf("status: %s/%s", r1.Status, r2.Status)
 	}
 
-	if r1.Header.Get("Location") != r2.Header.Get("Location") {
+	if !strings.EqualFold(strings.Split(r1.Header.Get("Content-Type"), ";")[0], strings.Split(r2.Header.Get("Content-Type"), ";")[0]) {
+		return true, "Content-Type"
+	}
+
+	if StripParamas(r1.Header.Get("Location")) != StripParamas(r2.Header.Get("Location")) {
 		return true, "location"
 	}
 
@@ -338,10 +331,6 @@ func isDiffResponse(r1, r2 *http.Response, diffThreshold int) (bool, string) {
 	if diff > diffThreshold {
 		return true, fmt.Sprintf("edit-distance: %d", diff)
 	}
-
-	// if !strings.EqualFold(r1.Header.Get("Content-Type"), r2.Header.Get("Content-Type")) {
-	// 	return true, "Content-Type"
-	// }
 
 	return false, ""
 }
@@ -363,12 +352,10 @@ func getIPs(hostname string, tries int) []string {
 	return strIps
 }
 
-func (s *Scanner) testWafBypass(vhost VHost, ips []string, response *http.Response, retryThreshold int) {
+func (s *Scanner) testWafBypass(vhost *VHost, ips []string, response *http.Response, retryThreshold int) {
 	opts := s.client.Options
 	opts.RequestPriority = httpc.Priority(3)
-	if s.Config.IncludeSNI {
-		opts.Connection.SNI = vhost.Hostname
-	}
+	opts.Connection.SNI = vhost.Hostname
 	req, _ := http.NewRequest("GET", "https://"+vhost.Hostname, nil)
 	msg := s.client.SendWithOptions(req, opts)
 	<-msg.Resolved

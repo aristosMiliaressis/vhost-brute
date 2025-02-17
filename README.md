@@ -20,10 +20,10 @@ Virtual host detection tool.
 
 **Help Page**
 ```
-vhost-brute - v1.0.0
+vhost-brute - v1.0.1+040f40d
 
 Usage:
-  vhost-brute [flags]
+  ./vhost-brute [flags]
 
 Flags:
 INPUT:
@@ -31,29 +31,26 @@ INPUT:
    -f, -file string  File containing hostnames.
 
 OUTPUT:
-   -s, -silent  Suppress stderr output.
-   -d, -debug   Enable debug logging on stderr.
+   -l, -log value             Stderr log level (silent/default/verbose) (default default)
+   -d, -debug                 Prints statistics at the end.
+   -rD, -response-dir string  Store matched responses at this directory
 
 FILTERING:
    -oU, -only-unindexed       Only shows VHosts that dont have a corresponding dns record.
-   -fc, -filter-codes string  Filter status codes (e.g. "403,502,503,504,530").
+   -fc, -filter-codes string  Filter status codes (e.g. "409,421,422,502,503,504,521,523,530").
 
 PERFORMANCE:
-   -r, -rps int      Requests per second. (default 10)
-   -t, -timeout int  Request timeout in seconds. (default 4)
+   -r, -rps int      Requests per second. (default 20)
+   -t, -timeout int  Request timeout in seconds. (default 5)
 
 MISC:
    -p, -proxy string     Proxy URL (e.g. "http://127.0.0.1:8080")
    -H, -header string[]  Add request header.
-   -iS, -include-sni     Includes corresponding SNI.
 
 
 EXAMPLE:
-	vhost-brute -u https://1.2.3.4 -f hostnames.txt
+	./vhost-brute -u https://1.2.3.4 -f hostnames.txt
 	
-	vhost-brute -s --only-unindexed -fc 403,502,503,504,409,521,523,422,530 -u https://1.2.3.4 -f hostnames.txt
-  
-```
+	./vhost-brute -s --only-unindexed -sR ./responses -fc 502,503,504,409,521,523,422,530 -u https://1.2.3.4 -f hostnames.txt
 
-ToDo
-- Include SNI
+```
