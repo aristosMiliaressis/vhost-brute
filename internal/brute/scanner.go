@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 	"sync"
@@ -155,6 +156,14 @@ func (s *Scanner) Scan() {
 			if s.Config.OnlyUnindexed && Contains(ips, s.Config.Url.Hostname()) {
 				gologger.Info().Msgf("VHost %s found on %s but matches dns record.\n", lHostname, s.Config.Url.Hostname())
 				return
+			}
+
+			responseText, _ := httputil.DumpResponse(response, true)
+			for _, str := range s.Config.FilterStrings {
+				if strings.Contains(string(responseText), str) {
+					gologger.Info().Msgf("VHost %s found on %s but filtered cause it contained string '%s'.\n", lHostname, s.Config.Url.Hostname(), str)
+					return
+				}
 			}
 
 			if vhost.Comparison != SAME && Contains(s.Config.FilterCodes, response.StatusCode) {

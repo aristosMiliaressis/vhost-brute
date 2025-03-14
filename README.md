@@ -20,7 +20,7 @@ Virtual host detection tool.
 
 **Help Page**
 ```
-vhost-brute - v1.0.1+040f40d
+vhost-brute - v1.0.1+f1e92ee
 
 Usage:
   ./vhost-brute [flags]
@@ -36,8 +36,9 @@ OUTPUT:
    -rD, -response-dir string  Store matched responses at this directory
 
 FILTERING:
-   -oU, -only-unindexed       Only shows VHosts that dont have a corresponding dns record.
-   -fc, -filter-codes string  Filter status codes (e.g. "409,421,422,502,503,504,521,523,530").
+   -oU, -only-unindexed          Only shows VHosts that dont have a corresponding dns record.
+   -fc, -filter-code string      Filter response with specified status code (-fc 403,401)
+   -fs, -filter-string string[]  Filter response with specified string (-fs admin)
 
 PERFORMANCE:
    -r, -rps int      Requests per second. (default 20)
@@ -49,8 +50,8 @@ MISC:
 
 
 EXAMPLE:
-	./vhost-brute -u https://1.2.3.4 -f hostnames.txt
-	
-	./vhost-brute -s --only-unindexed -sR ./responses -fc 502,503,504,409,521,523,422,530 -u https://1.2.3.4 -f hostnames.txt
+        ./vhost-brute -u https://1.2.3.4 -f hostnames.txt
 
+        ./vhost-brute -s --only-unindexed -fc 502,503,504,409,521,523,422,530 -u https://1.2.3.4 -f hostnames.txt
+        
 ```

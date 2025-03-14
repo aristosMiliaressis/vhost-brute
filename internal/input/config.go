@@ -23,6 +23,7 @@ type Config struct {
 	Debug         bool
 	OnlyUnindexed bool
 	FilterCodes   []int
+	FilterStrings []string
 	ResponseDir   string
 
 	Http httpc.ClientOptions
@@ -39,7 +40,8 @@ func ParseCliFlags(git_hash string) (Config, error) {
 	dfltOpts.Http.ErrorHandling.ReverseErrorCodeHandling = true
 	var headers goflags.StringSlice
 	var hostnameFile string
-	var statusCodes string
+	var filteredCodes string
+	var filteredStrings goflags.StringSlice
 	var targetUrl string
 
 	stderrLogLevels := goflags.AllowdTypes{
@@ -64,7 +66,8 @@ func ParseCliFlags(git_hash string) (Config, error) {
 
 	flagSet.CreateGroup("filtering", "Filtering",
 		flagSet.BoolVarP(&dfltOpts.OnlyUnindexed, "only-unindexed", "oU", false, "Only shows VHosts that dont have a corresponding dns record."),
-		flagSet.StringVarP(&statusCodes, "filter-codes", "fc", "", "Filter status codes (e.g. \"409,421,422,502,503,504,521,523,530\")."),
+		flagSet.StringVarP(&filteredCodes, "filter-code", "fc", "", "Filter response with specified status code (-fc 403,401)"),
+		flagSet.StringSliceVarP(&filteredStrings, "filter-string", "fs", nil, "Filter response with specified string (-fs admin)", goflags.FileStringSliceOptions),
 	)
 
 	flagSet.CreateGroup("performance", "Performance",
@@ -104,7 +107,7 @@ func ParseCliFlags(git_hash string) (Config, error) {
 		return Config{}, fmt.Errorf("input: invalid url provided: %s", err)
 	}
 
-	for _, code := range strings.Split(statusCodes, ",") {
+	for _, code := range strings.Split(filteredCodes, ",") {
 		c, err := strconv.Atoi(code)
 		if err == nil {
 			dfltOpts.FilterCodes = append(dfltOpts.FilterCodes, c)
@@ -115,6 +118,10 @@ func ParseCliFlags(git_hash string) (Config, error) {
 		if headerParts := strings.SplitN(v, ":", 2); len(headerParts) >= 2 {
 			dfltOpts.Http.DefaultHeaders[strings.Trim(headerParts[0], " ")] = strings.Trim(headerParts[1], " ")
 		}
+	}
+
+	for _, str := range filteredStrings {
+		dfltOpts.FilterStrings = append(dfltOpts.FilterStrings, str)
 	}
 
 	return dfltOpts, nil
