@@ -130,29 +130,24 @@ func (s *Scanner) Scan() {
 			}
 			s.notFoundMutex.RUnlock()
 
-			if vhost.Detection == "location" {
-				if strings.Contains(response.Header.Get("Location"), lHostname) {
+			if response.StatusCode >= 300 && response.StatusCode < 400 {
+				if strings.HasPrefix(response.Header.Get("Location"), "//") ||
+					strings.HasPrefix(strings.ToLower(response.Header.Get("Location")), "http:") ||
+					strings.HasPrefix(strings.ToLower(response.Header.Get("Location")), "https:") {
 					return
 				}
 			}
 
+			distance := s.calculateEditDistance(s.Config.Url, lHostname)
+
 			count := 0
 			for _, v := range s.FoundVHosts {
-				if diff, _ := isDiffResponse(v, response, 30); !diff {
+				if diff, _ := isDiffResponse(v, response, distance); !diff {
 					count++
 				}
 			}
 			s.FoundVHosts = append(s.FoundVHosts, response)
 			if count > 3 {
-				return
-			}
-
-			notFoundSample := s.getNotFoundPageBaseline(s.Config.Url, apexHostname, 4)
-			if ok, ipBanReason := isDiffResponse(notFoundSample.Response, response, notFoundSample.Threshold); !ok {
-				gologger.Error().Msgf("Possible IP ban for %s, Ratelimit or server overload detected, %s.", apexHostname, ipBanReason)
-				s.notFoundMutex.Lock()
-				s.NotFoundPerApex[apexHostname] = append(s.NotFoundPerApex[apexHostname], notFoundSample)
-				s.notFoundMutex.Unlock()
 				return
 			}
 
@@ -186,6 +181,52 @@ func (s *Scanner) Scan() {
 	if s.Config.Debug {
 		gologger.Info().Msg(s.client.GetErrorSummary())
 	}
+}
+
+func (s *Scanner) calculateEditDistance(url *url.URL, hostname string) int {
+	responses := []*http.Response{}
+	for {
+		resp := s.probeVHost(url, hostname, 1)
+		if resp == nil {
+			continue
+		}
+
+		responses = append(responses, resp)
+		if len(responses) == 3 {
+			break
+		}
+	}
+
+	body1, err := io.ReadAll(responses[0].Body)
+	if err != nil {
+		gologger.Error().Msgf("ERR: %s", err)
+	}
+	responses[0].Body = io.NopCloser(bytes.NewBuffer(body1))
+
+	body2, err := io.ReadAll(responses[1].Body)
+	if err != nil {
+		gologger.Error().Msgf("ERR: %s", err)
+	}
+	responses[1].Body = io.NopCloser(bytes.NewBuffer(body2))
+	max := levenshteinDistance([]rune(string(body1)), []rune(string(body2)))
+
+	body3, err := io.ReadAll(responses[2].Body)
+	if err != nil {
+		gologger.Error().Msgf("ERR: %s", err)
+	}
+	responses[2].Body = io.NopCloser(bytes.NewBuffer(body3))
+
+	lev := levenshteinDistance([]rune(string(body2)), []rune(string(body3)))
+	if lev > max {
+		max = lev
+	}
+
+	lev = levenshteinDistance([]rune(string(body1)), []rune(string(body3)))
+	if lev > max {
+		max = lev
+	}
+
+	return max + (max / 100 * 50)
 }
 
 func (s *Scanner) getNotFoundPageBaseline(url *url.URL, hostname string, priority int) NotFoundSample {
@@ -325,6 +366,10 @@ func isDiffResponse(r1, r2 *http.Response, diffThreshold int) (bool, string) {
 
 	body2, _ := io.ReadAll(r2.Body)
 	r2.Body = io.NopCloser(bytes.NewBuffer(body2))
+
+	if strings.Count(string(body1), " ") == strings.Count(string(body2), " ") {
+		return false, ""
+	}
 
 	diff := levenshteinDistance([]rune(string(body1)), []rune(string(body2)))
 
